@@ -168,6 +168,10 @@ class CodeChecker(object):
         # List of directories to search for dictionary files.
         'dict_path',
 
+        # List of custom dictionaries.  Dictionaries are specified either
+        # as a filename ("dict/myproject.dict") or a basename ("unix"),
+        # which is resolved against the CodeChecker's dict_path.
+        'custom_dictionaries',
         ]
 
     EXTENSION_LANG = {".py": "python",
@@ -200,6 +204,7 @@ class CodeChecker(object):
         script_dir = os.path.dirname(prog)
         self.dict_path = ["/usr/share/codespell",
                           os.path.join(script_dir, "../dict")]
+        self.custom_dictionaries = []
 
         # Try to determine the language from the filename, and from
         # that get the list of exclusions.
@@ -228,6 +233,14 @@ class CodeChecker(object):
         custom dictionary).
         '''
         self.language = lang
+
+    def add_dictionary(self, dictionary):
+        '''
+        Specify a custom dictionary file, which can either be a working
+        filename, or a base filename which is searched for in 'dict_path'
+        after appending ".dict".
+        '''
+        self.custom_dictionaries.append(dictionary)
 
     def guess_language(self, first_line):
         '''
@@ -268,21 +281,28 @@ class CodeChecker(object):
         return self._word_re.findall(line)
 
     def _create_dict(self):
-        dicts = ["base",
-                 self.language]
+        dicts = ["base", self.language] + self.custom_dictionaries
         dict_files = []
         for dict in dicts:
-            for dir in self.dict_path:
-                dict_file = os.path.join(dir, dict + ".dict")
-                if os.path.exists(dict_file):
-                    dict_files.append(dict_file)
-                    break
+            # If a working filename was supplied, use it.
+            if os.path.isfile(dict):
+                dict_files.append(dict)
+
+            # Otherwise, append ".dict" and search the dict_path.
             else:
-                warn("%s dictionary not found" % dict)
+                for dir in self.dict_path:
+                    dict_file = os.path.join(dir, dict + ".dict")
+                    if os.path.exists(dict_file):
+                        dict_files.append(dict_file)
+                        break
+                else:
+                    warn("%s dictionary not found" % dict)
 
         (out_fd, out_filename) = mkstemp(".dict", "codespell-")
+        #print "creating %r" % out_filename
         out_file = os.fdopen(out_fd, "wt")
         for filename in dict_files:
+            #print "appending %r" % filename
             in_file = open(filename, "rt")
             out_file.write(in_file.read())
             in_file.close()
@@ -345,7 +365,7 @@ class CodeChecker(object):
         Return true if there were any spelling errors.
         '''
         if self.exclude:
-            self.exclude_re = re.compile(r'\b(%s)\b' % '|'.join(self.excludes))
+            self.exclude_re = re.compile(r'\b(%s)\b' % '|'.join(self.exclude))
         self._send_words()
         errors = self._check()
         self._report(errors, sys.stdout)
