@@ -21,7 +21,7 @@ def warn(msg):
     sys.stderr.write("warning: %s: %s\n" % (__name__, msg))
 
 def error(msg):
-    sys.stderr.write("error: %s: %s\n" % (__naem__, msg))
+    sys.stderr.write("error: %s: %s\n" % (__name__, msg))
 
 class SpellChecker:
     '''
@@ -30,13 +30,32 @@ class SpellChecker:
     of misspelled words back from it.
     '''
 
-    def __init__(self, dictionary=None):
+    def __init__(self):
+        self.allow_compound = None
+        self.word_len = None
+        self.dictionary = None
+        self.ispell_in = None
+        self.ispell_out = None
+
+    def set_dictionary(self, dictionary):
+        self.dictionary = dictionary
+
+    def set_allow_compound(self, allow_compound):
+        self.allow_compound = allow_compound
+
+    def set_word_len(self, word_len):
+        self.word_len = word_len
+
+    def open(self):
         # Use -C to handle identifiers like "hashopen" or
         # "getallmatchingheaders" (which are conventional in Python).
-        cmd = ["ispell", "-C", "-a"]
-        #cmd = ["strace", "-o", "ispell-pipe.log", "ispell", "-a"]
-        if dictionary:
-            cmd.extend(["-p", dictionary])
+        cmd = ["ispell", "-a"]
+        if self.allow_compound:
+            cmd.append("-C")
+        if self.word_len is not None:
+            cmd.append("-W%d" % self.word_len)
+        if self.dictionary:
+            cmd.extend(["-p", self.dictionary])
         print " ".join(cmd)
         (self.ispell_in, self.ispell_out) = os.popen2(cmd, "t", 1)
         firstline = self.ispell_out.readline()
@@ -61,7 +80,6 @@ class SpellChecker:
 
     def send(self, word):
         '''Send a word to ispell to be checked.'''
-        #print "sending %r to ispell" % word
         self.ispell_in.write("^" + word + "\n")
 
     def done_sending(self):
@@ -169,7 +187,7 @@ class CodeChecker(object):
 
         self.line_num = 0
         self.locations = {}
-        self.ispell = None
+        self.ispell = SpellChecker()
 
         self.language = None
         self.exclude = []
@@ -182,7 +200,6 @@ class CodeChecker(object):
         script_dir = os.path.dirname(prog)
         self.dict_path = ["/usr/share/codespell",
                           os.path.join(script_dir, "../dict")]
-        print "dict_path:\n" + "\n  ".join(self.dict_path)
 
         # Try to determine the language from the filename, and from
         # that get the list of exclusions.
@@ -191,6 +208,13 @@ class CodeChecker(object):
             lang = self.EXTENSION_LANG.get(ext)
             if lang:
                 self.set_language(lang)
+
+    def get_spell_checker(self):
+        '''
+        Return the SpellChecker instance (wrapper around ispell)
+        that this CodeChecker will use.
+        '''
+        return self.ispell
 
     def exclude_string(self, string):
         '''
@@ -258,7 +282,6 @@ class CodeChecker(object):
 
         (out_fd, out_filename) = mkstemp(".dict", "codespell-")
         out_file = os.fdopen(out_fd, "wt")
-        print "creating temporary dict %s from %s" % (out_filename, dict_files)
         for filename in dict_files:
             in_file = open(filename, "rt")
             out_file.write(in_file.read())
@@ -278,7 +301,9 @@ class CodeChecker(object):
                 if self.language is None:
                     self.guess_language(line)
                 dict_filename = self._create_dict()
-                self.ispell = SpellChecker(dict_filename)
+
+                self.ispell.set_dictionary(dict_filename)
+                self.ispell.open()
 
             self.line_num += 1
             for word in self.split_line(line):
@@ -286,7 +311,6 @@ class CodeChecker(object):
                     self.locations[word].append(self.line_num)
                 else:
                     self.locations[word] = [self.line_num]
-                    #print "%d: %s" % (self.line_num, word)
                     self.ispell.send(word)
 
         self.ispell.done_sending()
@@ -320,7 +344,6 @@ class CodeChecker(object):
         Spell-check the current file, reporting errors to stdout.
         Return true if there were any spelling errors.
         '''
-        print "spell-checking %r" % self.filename
         if self.exclude:
             self.exclude_re = re.compile(r'\b(%s)\b' % '|'.join(self.excludes))
         self._send_words()
