@@ -1,23 +1,23 @@
 #!/usr/bin/python
 
-"""
+'''
 Tools to spellcheck programming language identifiers.  Eg. if the token
 getRemaningObjects occurs in source code, splits it into words the
 "obvious" way and spellcheck those words individually.  Handles various
 common ways of munging words together, eg. get_remaning_objects,
 SOME_CONSTENT.
-"""
+'''
 
 import os
 import re
 import select
 
 class SpellChecker:
-    """
+    '''
     A wrapper for ispell.  Opens two pipes to ispell: one for writing
     (sending) words to ispell, and the other for reading reports
     of misspelled words back from it.
-    """
+    '''
 
     def __init__(self):
         cmd = ["ispell", "-a"]
@@ -44,7 +44,7 @@ class SpellChecker:
             warn("ispell failed with exit status %r" % in_status)
 
     def send(self, word):
-        """Send a word to ispell to be checked."""
+        '''Send a word to ispell to be checked.'''
         #print "sending %r to ispell" % word
         self.ispell_in.write("^" + word + "\n")
 
@@ -52,12 +52,12 @@ class SpellChecker:
         self.ispell_in.close()
 
     def check(self):
-        """
+        '''
         Read any output available from ispell, ie. reports of misspelled
         words sent since initialization.  Return a list of tuples
         (bad_word, guesses) where 'guesses' is a list (possibly empty)
         of suggested replacements for 'guesses'.
-        """
+        '''
         report = []                     # list of (bad_word, suggestions)
         while True:
             #(ready, _, _) = select.select([self.ispell_out], [], [])
@@ -92,10 +92,10 @@ class SpellChecker:
             
 
 class CodeChecker:
-    """
+    '''
     Object that reads a source code file, splits it into tokens,
     splits the tokens into words, and spellchecks each word.
-    """
+    '''
 
     def __init__(self, filename):
         self.filename = filename
@@ -143,10 +143,10 @@ class CodeChecker:
         self.ispell.done_sending()
 
     def _check(self):
-        """
+        '''
         Report spelling errors found in the current file to stderr.
         Return true if there were any spelling errors.
-        """
+        '''
         messages = []
         for (bad_word, guesses) in self.ispell.check():
             if guesses:
@@ -166,35 +166,6 @@ class CodeChecker:
     def check_file(self):
         self._send_words()
         return self._check()
-
-
-# def check_tokens(tokens):
-#     ispell = SpellChecker()
-
-#     for word in split_tokens(tokens):
-#         #print "got word %r" % word
-#         ispell.send(word)
-#     ispell.done_sending()
-
-#     #ispell.ispell_in.close()
-# #     print "reading results from ispell"
-# #     while True:
-# #         line = ispell.ispell_out.readline()
-# #         if line:
-# #             #sys.stdout.write(line)
-# #             print repr(line)
-# #         else:
-# #             break
-
-
-#     errors = ispell.check()
-#     for (bad_word, guesses) in errors:
-#         if guesses:
-#             print "%s: %s ?" % (bad_word, ", ".join(guesses))
-#         else:
-#             print "%s ?" % bad_word
-
-#     return not errors
 
 
 if __name__ == "__main__":
