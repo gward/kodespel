@@ -12,6 +12,7 @@ Requires Python 2.3 or greater.
 
 import sys, os
 import re
+from glob import glob
 from tempfile import mkstemp
 
 assert sys.hexversion >= 0x02030000, "requires Python 2.3 or greater"
@@ -49,7 +50,8 @@ class SpellChecker:
     def open(self):
         # Use -C to handle identifiers like "hashopen" or
         # "getallmatchingheaders" (which are conventional in Python).
-        cmd = ["ispell", "-a"]
+        #cmd = ["ispell", "-a"]
+        cmd = ["aspell", "-a", "--sug-mode=ultra"]
         if self.allow_compound:
             cmd.append("-C")
         if self.word_len is not None:
@@ -125,6 +127,94 @@ class SpellChecker:
         return report
 
 
+# XXX argh, terminology is horribly inconsistent here -- "dictionary"
+# can be a standard .dict file installed by codespell identified by
+# basename ("unix", "java"), or a custom file specified by the user
+# ("myproject.dict"), or the concatenation of a bunch of either one.
+
+class SpellingDictionary(object):
+    __slots__ = [
+        # List of directories to search for dictionary files.
+        'dict_path',
+
+        'dict_filename',
+
+        # List of custom dictionaries.  Dictionaries are specified either
+        # as a filename ("dict/myproject.dict") or a basename ("unix"),
+        # which is resolved against the CodeChecker's dict_path.
+        'custom_dictionaries',
+        ]
+
+    def __init__(self):
+        prog = sys.argv[0]
+        while os.path.islink(prog):
+            prog = os.path.join(os.path.dirname(prog), os.readlink(prog))
+        script_dir = os.path.dirname(prog)
+
+        self.dict_path = [os.path.join(sys.prefix, "share/codespell"),
+                          os.path.join(script_dir, "../dict")]
+        self.custom_dictionaries = []
+        self.dict_filename = None       # file with concatenated dictionaries
+        
+    def close(self):
+        if self.dict_filename and os.path.exists(self.dict_filename):
+            os.unlink(self.dict_filename)
+            self.dict_filename = None
+
+    def __del__(self):
+        self.close()
+
+    def add_dictionary(self, dictionary):
+        '''
+        Specify a custom dictionary file, which can either be a working
+        filename, or a base filename which is searched for in 'dict_path'
+        after appending ".dict".
+        '''
+        self.custom_dictionaries.append(dictionary)
+
+    def find_standard_dictionaries(self):
+        filenames = []
+        for dir in self.dict_path:
+            filenames.extend(glob(os.path.join(dir, "*.dict")))
+        return filenames
+
+    def _create_dict(self):
+        dicts = ["base"] + self.custom_dictionaries
+        dict_files = []
+        for dict in dicts:
+            # If a working filename was supplied, use it.
+            if os.path.isfile(dict):
+                dict_files.append(dict)
+
+            # Otherwise, append ".dict" and search the dict_path.
+            else:
+                for dir in self.dict_path:
+                    dict_file = os.path.join(dir, dict + ".dict")
+                    if os.path.exists(dict_file):
+                        dict_files.append(dict_file)
+                        break
+                else:
+                    warn("%s dictionary not found" % dict)
+
+        (out_fd, out_filename) = mkstemp(".dict", "codespell-")
+        #print "creating %r" % out_filename
+        out_file = os.fdopen(out_fd, "wt")
+        for filename in dict_files:
+            #print "appending %r" % filename
+            in_file = open(filename, "rt")
+            out_file.write(in_file.read())
+            in_file.close()
+
+        self.dict_filename = out_filename
+
+    def get_filename(self):
+        if self.dict_filename is None:
+            self._create_dict()
+            assert (self.dict_filename is not None and
+                    os.path.isfile(self.dict_filename)), \
+                   "bad dict_filename: %r" % self.dict_filename
+        return self.dict_filename
+
 class CodeChecker(object):
     '''
     Object that reads a source code file, splits it into tokens,
@@ -161,17 +251,14 @@ class CodeChecker(object):
         # Regex used to strip excluded strings from input.
         'exclude_re',
 
+        # SpellingDictionary instance for finding and concatenating
+        # various custom dictionaries.
+        'dictionary',
+
         # If true, report each misspelling only once (at its first
         # occurrence).
         'unique',
 
-        # List of directories to search for dictionary files.
-        'dict_path',
-
-        # List of custom dictionaries.  Dictionaries are specified either
-        # as a filename ("dict/myproject.dict") or a basename ("unix"),
-        # which is resolved against the CodeChecker's dict_path.
-        'custom_dictionaries',
         ]
 
     EXTENSION_LANG = {".py": "python",
@@ -182,7 +269,7 @@ class CodeChecker(object):
                       ".java": "java"}
 
 
-    def __init__(self, filename=None, file=None):
+    def __init__(self, filename=None, file=None, dictionary=None):
         self.filename = filename
         if file is None and filename is not None:
             self.file = open(filename, "rt")
@@ -196,15 +283,8 @@ class CodeChecker(object):
         self.language = None
         self.exclude = []
         self.exclude_re = None
+        self.dictionary = dictionary
         self.unique = False
-
-        prog = sys.argv[0]
-        while os.path.islink(prog):
-            prog = os.path.join(os.path.dirname(prog), os.readlink(prog))
-        script_dir = os.path.dirname(prog)
-        self.dict_path = ["/usr/share/codespell",
-                          os.path.join(script_dir, "../dict")]
-        self.custom_dictionaries = []
 
         # Try to determine the language from the filename, and from
         # that get the list of exclusions.
@@ -233,14 +313,7 @@ class CodeChecker(object):
         custom dictionary).
         '''
         self.language = lang
-
-    def add_dictionary(self, dictionary):
-        '''
-        Specify a custom dictionary file, which can either be a working
-        filename, or a base filename which is searched for in 'dict_path'
-        after appending ".dict".
-        '''
-        self.custom_dictionaries.append(dictionary)
+        self.dictionary.add_dictionary(lang)
 
     def guess_language(self, first_line):
         '''
@@ -280,35 +353,6 @@ class CodeChecker(object):
             line = self.exclude_re.sub('', line)
         return self._word_re.findall(line)
 
-    def _create_dict(self):
-        dicts = ["base", self.language] + self.custom_dictionaries
-        dict_files = []
-        for dict in dicts:
-            # If a working filename was supplied, use it.
-            if os.path.isfile(dict):
-                dict_files.append(dict)
-
-            # Otherwise, append ".dict" and search the dict_path.
-            else:
-                for dir in self.dict_path:
-                    dict_file = os.path.join(dir, dict + ".dict")
-                    if os.path.exists(dict_file):
-                        dict_files.append(dict_file)
-                        break
-                else:
-                    warn("%s dictionary not found" % dict)
-
-        (out_fd, out_filename) = mkstemp(".dict", "codespell-")
-        #print "creating %r" % out_filename
-        out_file = os.fdopen(out_fd, "wt")
-        for filename in dict_files:
-            #print "appending %r" % filename
-            in_file = open(filename, "rt")
-            out_file.write(in_file.read())
-            in_file.close()
-
-        return out_filename
-
 
     def _send_words(self):
         dict_filename = None
@@ -320,8 +364,7 @@ class CodeChecker(object):
             if self.line_num == 0:
                 if self.language is None:
                     self.guess_language(line)
-                dict_filename = self._create_dict()
-
+                dict_filename = self.dictionary.get_filename()
                 self.ispell.set_dictionary(dict_filename)
                 self.ispell.open()
 
@@ -334,8 +377,6 @@ class CodeChecker(object):
                     self.ispell.send(word)
 
         self.ispell.done_sending()
-        if dict_filename:
-            os.unlink(dict_filename)
 
     def _check(self):
         '''
