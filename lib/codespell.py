@@ -18,10 +18,10 @@ assert sys.hexversion >= 0x02030000, "requires Python 2.3 or greater"
 
 
 def warn(msg):
-    sys.stderr.write("warning: %s\n" % msg)
+    sys.stderr.write("warning: %s: %s\n" % (__name__, msg))
 
 def error(msg):
-    sys.stderr.write("error: %s\n" % msg)
+    sys.stderr.write("error: %s: %s\n" % (__naem__, msg))
 
 class SpellChecker:
     '''
@@ -31,7 +31,9 @@ class SpellChecker:
     '''
 
     def __init__(self, dictionary=None):
-        cmd = ["ispell", "-a"]
+        # Use -C to handle identifiers like "hashopen" or
+        # "getallmatchingheaders" (which are conventional in Python).
+        cmd = ["ispell", "-C", "-a"]
         #cmd = ["strace", "-o", "ispell-pipe.log", "ispell", "-a"]
         if dictionary:
             cmd.extend(["-p", dictionary])
@@ -174,9 +176,13 @@ class CodeChecker(object):
         self.exclude_re = None
         self.unique = False
 
-        module_dir = os.path.dirname(sys.modules[__name__].__file__)
+        prog = sys.argv[0]
+        while os.path.islink(prog):
+            prog = os.path.join(os.path.dirname(prog), os.readlink(prog))
+        script_dir = os.path.dirname(prog)
         self.dict_path = ["/usr/share/codespell",
-                          os.path.join(module_dir, "../dict")]
+                          os.path.join(script_dir, "../dict")]
+        print "dict_path:\n" + "\n  ".join(self.dict_path)
 
         # Try to determine the language from the filename, and from
         # that get the list of exclusions.
@@ -311,7 +317,7 @@ class CodeChecker(object):
 
     def check_file(self):
         '''
-        Spell-check the current file, reporting errors to stderr.
+        Spell-check the current file, reporting errors to stdout.
         Return true if there were any spelling errors.
         '''
         print "spell-checking %r" % self.filename
@@ -319,7 +325,7 @@ class CodeChecker(object):
             self.exclude_re = re.compile(r'\b(%s)\b' % '|'.join(self.excludes))
         self._send_words()
         errors = self._check()
-        self._report(errors, sys.stderr)
+        self._report(errors, sys.stdout)
         return bool(errors)
 
 
