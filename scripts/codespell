@@ -12,6 +12,14 @@ def main():
                       metavar="STR",
                       help="exclude STR from spell-checking -- strip it from "
                            "input text before splitting into words")
+    parser.add_option("-C", "--compound", action='store_true',
+                      help="allow compound words (eg. getall) [default]")
+    parser.add_option("--no-compound",
+                      action='store_false', dest='compound',
+                      help="don't allow compound words")
+    parser.add_option("-W", "--wordlen", type='int', default=2,
+                      metavar="N",
+                      help="ignore words with <= N characters")
     (options, args) = parser.parse_args()
     if not args:
         parser.error("not enough arguments")
@@ -19,13 +27,15 @@ def main():
     any_errors = False
     for filename in args:
         try:
-            print "checking file %s" % filename
             checker = CodeChecker(filename)
         except IOError, err:
             error("%s: %s" % (filename, err.strerror))
             any_errors = True
         else:
             checker.set_unique(options.unique)
+            ispell = checker.get_spell_checker()
+            ispell.set_allow_compound(options.compound)
+            ispell.set_word_len(options.wordlen)
             for s in options.exclude:
                 checker.exclude_string(s)
             if checker.check_file():
