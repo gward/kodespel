@@ -2,7 +2,7 @@
 
 import sys
 from optparse import OptionParser
-from codespell import CodeChecker, error
+from codespell import CodeChecker, SpellingDictionary, error
 
 def main():
     parser = OptionParser(usage="%prog [options] filename ...")
@@ -12,7 +12,12 @@ def main():
                       action='append', dest='dictionaries', default=[],
                       metavar="DICT",
                       help="use custom dictionary DICT (can be a filename "
-                           "or a dictionary name)")
+                           "or a dictionary name); use multiple times to "
+                           "include multiple dictionaries")
+    parser.add_option("--list-dicts", action='store_true',
+                      help="list available dictionaries and exit")
+    parser.add_option("--dump-dict", action='store_true',
+                      help="build custom dictionary (respecting -d options)")
     parser.add_option("-x", "--exclude", action='append', default=[],
                       metavar="STR",
                       help="exclude STR from spell-checking -- strip it from "
@@ -26,20 +31,43 @@ def main():
                       metavar="N",
                       help="ignore words with <= N characters")
     (options, args) = parser.parse_args()
+    if options.list_dicts or options.dump_dict:
+        if args:
+            parser.error("no additional arguments allowed with "
+                         "--list-dicts or --dump-dict")
+
+    if options.list_dicts:
+        dicts = SpellingDictionary()
+        print "\n".join(dicts.find_standard_dictionaries())
+        sys.exit()
+
+    elif options.dump_dict:
+        dicts = SpellingDictionary()
+        for dict in options.dictionaries:
+            dicts.add_dictionary(dict)
+        file = open(dicts.get_filename(), "rt")
+        for line in file:
+            line = line.strip()
+            if line:
+                print line
+        sys.exit()
+
     if not args:
         parser.error("not enough arguments")
+
+    dicts = SpellingDictionary()
+    for dictionary in options.dictionaries:
+        dicts.add_dictionary(dictionary)
 
     any_errors = False
     for filename in args:
         try:
-            checker = CodeChecker(filename)
+            checker = CodeChecker(filename, dictionary=dicts)
         except IOError, err:
             error("%s: %s" % (filename, err.strerror))
             any_errors = True
         else:
             checker.set_unique(options.unique)
-            for dictionary in options.dictionaries:
-                checker.add_dictionary(dictionary)
             ispell = checker.get_spell_checker()
             ispell.set_allow_compound(options.compound)
             ispell.set_word_len(options.wordlen)
@@ -48,6 +76,7 @@ def main():
             if checker.check_file():
                 any_errors = True
 
+    dicts.close()
     sys.exit(any_errors and 1 or 0)
 
 main()
