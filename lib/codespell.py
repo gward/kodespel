@@ -12,7 +12,7 @@ Requires Python 2.3 or greater.
 
 import sys, os
 import re
-from sets import Set
+from tempfile import mkstemp
 
 assert sys.hexversion >= 0x02030000, "requires Python 2.3 or greater"
 
@@ -30,9 +30,12 @@ class SpellChecker:
     of misspelled words back from it.
     '''
 
-    def __init__(self):
+    def __init__(self, dictionary=None):
         cmd = ["ispell", "-a"]
         #cmd = ["strace", "-o", "ispell-pipe.log", "ispell", "-a"]
+        if dictionary:
+            cmd.extend(["-p", dictionary])
+        print " ".join(cmd)
         (self.ispell_in, self.ispell_out) = os.popen2(cmd, "t", 1)
         firstline = self.ispell_out.readline()
         assert firstline.startswith("@(#)"), \
@@ -132,15 +135,7 @@ class CodeChecker(object):
         # or from the first line of a script.
         'language',
 
-        # User-specified excluded strings; these are added to
-        # BASE_EXCLUDE and one of the LANG_EXCLUDE before creating
-        # 'exclude' and 'exclude_re'.
-        'custom_exclude',
-
-        # Set of strings and words that are excluded from
-        # spell-checking.
-
-
+        # List of strings that are excluded from spell-checking.
         'exclude',
 
         # Regex used to strip excluded strings from input.
@@ -150,57 +145,10 @@ class CodeChecker(object):
         # occurrence).
         'unique',
 
+        # List of directories to search for dictionary files.
+        'dict_path',
+
         ]
-
-    # Exclusions -- tokens that should not be split into words and
-    # should not be spell-checked.  These are removed from input text
-    # before it is split into words, and then again from the list of
-    # split words.  (We have to remove them before splitting so people
-    # can exclude local mixed-case trade names like "WhizzBANGulator" --
-    # you don't want codespell to split that into words and then have to
-    # exclude the individual words.  But we also have to remove them
-    # after splitting because of method names like "parse_args", where
-    # "args" is an excluded word.)
-
-    # Exclusions that apply to several programming languages.  There is
-    # a slight Unix bias here.  ;-)
-    BASE_EXCLUDE = ["usr",               # as in "#!/usr/bin/python"
-                    "argv",              # Python; C and Java by convention
-                    "strerror",          # Python, C
-                    "errno",
-                    "stdout",
-                    "stderr",
-                    "readline",
-                    
-                    # Data type names in C, C++, Python, Java, ...
-                    "int",
-                    "char",
-                    "bool",
-                   ]
-
-    # Per-language exclusions.
-    LANG_EXCLUDE = {
-        "python": ["def",
-                   "elif",
-                   "sys",
-                   "os",
-                   "startswith",
-                   "endswith",
-                   "optparse",
-                   "prog",
-                   "args",
-                   "metavar",
-                  ],
-
-        "c":      [
-                  ],
-
-        "java":   [
-                  ],
-
-        "perl":   [
-                  ],
-        }
 
     EXTENSION_LANG = {".py": "python",
                       ".c": "c",
@@ -219,13 +167,16 @@ class CodeChecker(object):
 
         self.line_num = 0
         self.locations = {}
-        self.ispell = SpellChecker()
+        self.ispell = None
 
         self.language = None
-        self.custom_exclude = []
-        self.exclude = {}
+        self.exclude = []
         self.exclude_re = None
         self.unique = False
+
+        module_dir = os.path.dirname(sys.modules[__name__].__file__)
+        self.dict_path = ["/usr/share/codespell",
+                          os.path.join(module_dir, "../dict")]
 
         # Try to determine the language from the filename, and from
         # that get the list of exclusions.
@@ -239,31 +190,14 @@ class CodeChecker(object):
         '''
         Exclude 'string' from spell-checking.
         '''
-        self.custom_exclude.append(string)
+        self.exclude.append(string)
 
     def set_language(self, lang):
         '''
-        Set the language for the current file, and set the list
-        of excluded words based on the language.  Raises ValueError
-        if 'lang' is unknown.
+        Set the language for the current file (used to determine the
+        custom dictionary).
         '''
-        if lang not in self.LANG_EXCLUDE:
-            raise ValueError("unknown language: %r" % lang)
         self.language = lang
-
-        # Determine the final list of excluded strings (and, more
-        # importantly, the regex that will be used to strip them from
-        # input text).
-        exclusions = (self.BASE_EXCLUDE +
-                      self.LANG_EXCLUDE[self.language] +
-                      self.custom_exclude)
-        self.exclude_re = re.compile(r'\b(' +
-                                     "|".join(exclusions) +
-                                     r')\b')
-        print "language is %r" % self.language
-        print "excluded strings: %r" % exclusions
-        print "exclusion regex: %s" % self.exclude_re.pattern
-        self.exclude = Set(exclusions)
 
     def guess_language(self, first_line):
         '''
@@ -301,18 +235,44 @@ class CodeChecker(object):
         '''
         if self.exclude_re:
             line = self.exclude_re.sub('', line)
-        return [word
-                for word in self._word_re.findall(line)
-                if word not in self.exclude]
+        return self._word_re.findall(line)
+
+    def _create_dict(self):
+        dicts = ["base",
+                 self.language]
+        dict_files = []
+        for dict in dicts:
+            for dir in self.dict_path:
+                dict_file = os.path.join(dir, dict + ".dict")
+                if os.path.exists(dict_file):
+                    dict_files.append(dict_file)
+                    break
+            else:
+                warn("%s dictionary not found" % dict)
+
+        (out_fd, out_filename) = mkstemp(".dict", "codespell-")
+        out_file = os.fdopen(out_fd, "wt")
+        print "creating temporary dict %s from %s" % (out_filename, dict_files)
+        for filename in dict_files:
+            in_file = open(filename, "rt")
+            out_file.write(in_file.read())
+            in_file.close()
+
+        return out_filename
+
 
     def _send_words(self):
+        dict_filename = None
         for line in self.file:
             # If this is the first line of the file, and we don't yet
             # know the programming language, try to guess it from the
             # content of the line (which might be something like
             # "#!/usr/bin/python" or "#!/usr/bin/perl")
-            if self.line_num == 0 and self.language is None:
-                self.guess_language(line)
+            if self.line_num == 0:
+                if self.language is None:
+                    self.guess_language(line)
+                dict_filename = self._create_dict()
+                self.ispell = SpellChecker(dict_filename)
 
             self.line_num += 1
             for word in self.split_line(line):
@@ -324,6 +284,8 @@ class CodeChecker(object):
                     self.ispell.send(word)
 
         self.ispell.done_sending()
+        if dict_filename:
+            os.unlink(dict_filename)
 
     def _check(self):
         '''
@@ -353,6 +315,8 @@ class CodeChecker(object):
         Return true if there were any spelling errors.
         '''
         print "spell-checking %r" % self.filename
+        if self.exclude:
+            self.exclude_re = re.compile(r'\b(%s)\b' % '|'.join(self.excludes))
         self._send_words()
         errors = self._check()
         self._report(errors, sys.stderr)
