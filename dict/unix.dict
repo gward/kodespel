@@ -16,3 +16,7 @@ execv
 execvp
 pid
 ppid
+fstatvfs
+statvfs
+stat
+fstat

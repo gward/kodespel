@@ -16,8 +16,21 @@ min
 max
 
 http
+https
+url
+ssl
+inet
+
 regex
 cpp
 hpp
 java
 perl
+
+iconify
+deiconify
+unmaximize
+popup
+
+todo
+xxx
