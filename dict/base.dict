@@ -9,4 +9,15 @@ readline
 int
 char
 bool
+struct
 
+endian
+min
+max
+
+http
+regex
+cpp
+hpp
+java
+perl
