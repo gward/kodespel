@@ -21,14 +21,15 @@ def main():
         try:
             print "checking file %s" % filename
             checker = CodeChecker(filename)
+        except IOError, err:
+            error("%s: %s" % (filename, err.strerror))
+            any_errors = True
+        else:
             checker.set_unique(options.unique)
             for s in options.exclude:
                 checker.exclude_string(s)
             if checker.check_file():
                 any_errors = True
-        except IOError, err:
-            error("%s: %s" % (filename, err.strerror))
-            any_errors = True
 
     sys.exit(any_errors and 1 or 0)
 
