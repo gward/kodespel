@@ -56,7 +56,7 @@ class SpellChecker:
             cmd.append("-W%d" % self.word_len)
         if self.dictionary:
             cmd.extend(["-p", self.dictionary])
-        print " ".join(cmd)
+        #print " ".join(cmd)
         (self.ispell_in, self.ispell_out) = os.popen2(cmd, "t", 1)
         firstline = self.ispell_out.readline()
         assert firstline.startswith("@(#)"), \
@@ -266,7 +266,7 @@ class CodeChecker(object):
     # "GetNext", "HTTP_NOT_FOUND", "HttpResponse", etc.  Case 2 is
     # needed for uppercase acronyms in mixed-case identifiers,
     # eg. "HTTPResponse", "getHTTPResponse".
-    _word_re = re.compile(r'[A-Z]?[a-z]+|[A-Z]+(?![a-z])')
+    _word_re = re.compile(r'[A-Z]?[a-z\']+|[A-Z\']+(?![a-z])')
 
     def split_line(self, line):
         '''
