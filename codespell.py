@@ -1,11 +1,13 @@
 #!/usr/bin/python
 
 '''
-Tools to spellcheck programming language identifiers.  Eg. if the token
-getRemaningObjects occurs in source code, splits it into words the
-"obvious" way and spellcheck those words individually.  Handles various
-common ways of munging words together, eg. get_remaning_objects,
-SOME_CONSTENT.
+Module for spell-check programming language source code.  The trick is
+that it knows how to split identifiers up into words: e.g. if the token
+getRemaningObjects occurs in source code, it is split into "get",
+"Remaning", "Objects", and those words are piped to ispell, which easily
+detects the spelling error.  Handles various common ways of munging
+words together: identifiers like DoSomething, get_remaning_objects,
+SOME_CONSTENT, and HTTPResponse are all handled correctly.
 '''
 
 import os
@@ -176,10 +178,3 @@ if __name__ == "__main__":
         any_errors = any_errors or checker.check_file()
 
     sys.exit(any_errors and 1 or 0)
-    
-
-    #text = sys.stdin.read()
-    #if check_tokens(text.split()):
-    #    sys.exit(0)
-    #else:
-    #    sys.exit(1)
