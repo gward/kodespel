@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 '''
 Module for spell-check programming language source code.  The trick is
 that it knows how to split identifiers up into words: e.g. if the token
@@ -10,9 +8,15 @@ words together: identifiers like DoSomething, get_remaning_objects,
 SOME_CONSTENT, and HTTPResponse are all handled correctly.
 '''
 
-import os
+import sys, os
 import re
 import select
+
+def warn(msg):
+    sys.stderr.write("warning: %s\n" % msg)
+
+def error(msg):
+    sys.stderr.write("error: %s\n" % msg)
 
 class SpellChecker:
     '''
@@ -99,9 +103,12 @@ class CodeChecker:
     splits the tokens into words, and spellchecks each word.
     '''
 
-    def __init__(self, filename):
+    def __init__(self, filename=None, file=None):
         self.filename = filename
-        self.file = open(filename, "rt")
+        if file is None and filename is not None:
+            self.file = open(filename, "rt")
+        else:
+            self.file = file
         self.line_num = 0
 
         # Map word to list of line numbers where that word occurs.
@@ -109,8 +116,15 @@ class CodeChecker:
         # need to bother ispell with the same word twice.
         self.locations = {}
 
+        # If true, report each misspelling only once (at its first
+        # occurrence).
+        self.unique = False
+
         # Pair of pipes to send words to ispell and read errors back.
         self.ispell = SpellChecker()
+
+    def set_unique(self, unique):
+        self.unique = unique
 
     # A word is either:
     #   1) a string of letters, optionally capitalized; or
@@ -156,8 +170,11 @@ class CodeChecker:
             else:
                 message = "%s ?" % bad_word
 
-            for line_num in self.locations[bad_word]:
-                messages.append((line_num, message))
+            if self.unique:
+                messages.append((self.locations[bad_word][0], message))
+            else:
+                for line_num in self.locations[bad_word]:
+                    messages.append((line_num, message))
 
         messages.sort()
         for (line_num, message) in messages:
@@ -166,15 +183,14 @@ class CodeChecker:
         return bool(messages)
 
     def check_file(self):
+        '''
+        Spell-check the current file, reporting errors to stderr.
+        Return true if there were any spelling errors.
+        '''
         self._send_words()
         return self._check()
 
 
 if __name__ == "__main__":
     import sys
-    any_errors = False
-    for filename in sys.argv[1:]:
-        checker = CodeChecker(filename)
-        any_errors = any_errors or checker.check_file()
-
-    sys.exit(any_errors and 1 or 0)
+    sys.exit(CodeChecker(sys.argv[1]).check_file() and 1 or 0)
