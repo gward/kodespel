@@ -110,28 +110,6 @@ class CodeChecker:
         # Pair of pipes to send words to ispell and read errors back.
         self.ispell = SpellChecker()
 
-    def split_tokens(self, tokens):
-        """
-        Given a sequence of tokens, yields a sequence of words.
-        Eg. for input
-          ['call', 'getRemainingObjects', 'with', 'SPECIAL_VALUE']
-        yields
-          ['call', 'get', 'Remaining', 'Objects', 'with', 'SPECIAL', 'VALUE']
-        """
-        for token in tokens:
-            #print "splitting token %r" % token
-            pos = 0
-            pat = re.compile(r'[A-Z]?[a-z]+|[A-Z]+(?![a-z])')
-            while True:
-                match = pat.search(token, pos=pos)
-                if not match:
-                    break
-                #print "pos=%2d: %r" % (pos, match.group(0))
-                (beg, end) = match.span()
-                #print "found word %r" % token[beg:end]
-                yield token[beg:end]
-                pos = match.end()
-
     # A word is either:
     #   1) a string of letters, optionally capitalized; or
     #   2) a string of uppercase letters not immediately followed
