@@ -6,11 +6,16 @@ getRemaningObjects occurs in source code, it is split into "get",
 detects the spelling error.  Handles various common ways of munging
 words together: identifiers like DoSomething, get_remaning_objects,
 SOME_CONSTENT, and HTTPResponse are all handled correctly.
+
+Requires Python 2.3 or greater.
 '''
 
 import sys, os
 import re
 import select
+
+assert sys.hexversion >= 0x02030000, "requires Python 2.3 or greater"
+
 
 def warn(msg):
     sys.stderr.write("warning: %s\n" % msg)
@@ -95,13 +100,93 @@ class SpellChecker:
 
         self.total_errors += len(report)
         return report
-            
 
-class CodeChecker:
+
+class CodeChecker(object):
     '''
     Object that reads a source code file, splits it into tokens,
     splits the tokens into words, and spellchecks each word.
     '''
+
+    __slots__ = [
+        # Name of the file currently being read.
+        'filename',
+
+        # The file currently being read.
+        'file',
+
+        # Current line number in 'file'.
+        'line_num',
+
+        # Map word to list of line numbers where that word occurs, and
+        # coincidentally allows us to prevent checking the same word
+        # twice.
+        'locations',
+
+        # SpellChecker object -- a pair of pipes to send words to ispell
+        # and read errors back.
+        'ispell',
+
+        # The programming language of the current file (used to determine
+        # exempt words).  This can be derived either from the filename
+        # or from the first line of a script.
+        'language',
+
+        # List of strings that are exempt from spell-checking -- these
+        # are removed from input text before it is split into words.
+        'exempt_strings',
+
+        # Regex used to strip exempt strings from input.
+        'exempt_re',
+
+        # If true, report each misspelling only once (at its first
+        # occurrence).
+        'unique',
+
+        ]
+
+    # Exemptions -- tokens that should not be split into words and should
+    # not be spell-checked.  (Exemptions are processed before splitting into
+    # words to allow exempting project-specific product names, which are
+    # often in StudlyCaps.)
+
+    # Exemptions for any programming language.  There is a slight Unix bias
+    # here.  ;-)
+    BASE_EXEMPTIONS = ["usr",               # as in "#!/usr/bin/python"
+                       "argv",              # Python; C and Java by convention
+                       "strerror",          # Python, C
+                       "errno",
+
+                       # Primitive datatypes in Java, C, C++, ...
+                       "int",
+                       "char",
+                      ]
+
+    LANG_EXEMPTIONS = {
+        "python": ["def",
+                   "optparse",
+                   "prog",                  # strong convention ;-)
+                   "args",
+                  ],
+
+
+        "c":      [
+                  ],
+
+        "java":   [
+                  ],
+
+        "perl":   [
+                  ],
+        }
+
+    EXTENSION_LANG = {".py": "python",
+                      ".c": "c",
+                      ".h": "c",
+                      ".cpp": "c",
+                      ".hpp": "c",
+                      ".java": "java"}
+
 
     def __init__(self, filename=None, file=None):
         self.filename = filename
@@ -109,19 +194,50 @@ class CodeChecker:
             self.file = open(filename, "rt")
         else:
             self.file = file
+
         self.line_num = 0
-
-        # Map word to list of line numbers where that word occurs.
-        # Also tracks which words we've already checked, so we don't
-        # need to bother ispell with the same word twice.
         self.locations = {}
+        self.ispell = SpellChecker()
 
-        # If true, report each misspelling only once (at its first
-        # occurrence).
+        self.language = None
+        self.exempt_strings = []
+        self.exempt_re = None
         self.unique = False
 
-        # Pair of pipes to send words to ispell and read errors back.
-        self.ispell = SpellChecker()
+        # Try to determine the language from the filename, and from
+        # that get the list of exemptions.
+        if filename:
+            ext = os.path.splitext(filename)[1]
+            lang = self.EXTENSION_LANG.get(ext)
+            if lang:
+                self.set_language(lang)
+
+    def set_language(self, lang):
+        '''
+        Set the language for the current file, and set the list
+        of exempt words based on the language.  Raises ValueError
+        if 'lang' is unknown.
+        '''
+        if lang not in self.LANG_EXEMPTIONS:
+            raise ValueError("unknown language: %r" % lang)
+        self.language = lang
+        self.exempt_strings = (self.BASE_EXEMPTIONS +
+                               self.LANG_EXEMPTIONS[self.language])
+        print "language is %r" % self.language
+        print "exempt strings: %r" % self.exempt_strings
+
+    def guess_language(self, first_line):
+        '''
+        Attempt to guess the programming language of the current file
+        by examining the first line of source code.  Mainly useful
+        for Unix scripts with a #! line.
+        '''
+        if not first_line.startswith("#!"):
+            return
+        if "python" in first_line:
+            self.set_language("python")
+        elif "perl" in first_line:
+            self.set_language("perl")
 
     def set_unique(self, unique):
         self.unique = unique
@@ -144,10 +260,19 @@ class CodeChecker:
         is split into
           ["match", "pat", "search", "current", "line", "pos"]
         '''
+        if self.exempt_re:
+            line = self.exempt_re.sub('', line)
         return self._word_re.findall(line)
 
     def _send_words(self):
         for line in self.file:
+            # If this is the first line of the file, and we don't yet
+            # know the programming language, try to guess it from the
+            # content of the line (which might be something like
+            # "#!/usr/bin/python" or "#!/usr/bin/perl")
+            if self.line_num == 0 and self.language is None:
+                self.guess_language(line)
+
             self.line_num += 1
             for word in self.split(line):
                 if word in self.locations:
@@ -187,6 +312,7 @@ class CodeChecker:
         Spell-check the current file, reporting errors to stderr.
         Return true if there were any spelling errors.
         '''
+        self.exempt_re = re.compile("|".join(self.exempt_strings))
         self._send_words()
         return self._check()
 
