@@ -1,0 +1,27 @@
+#!/usr/bin/python
+
+import sys
+from optparse import OptionParser
+from codespell import CodeChecker, error
+
+def main():
+    parser = OptionParser(usage="%prog [options] filename ...")
+    parser.add_option("-u", "--unique", action='store_true',
+                      help="report each misspelling only once")
+    (options, args) = parser.parse_args()
+    if not args:
+        parser.error("not enough arguments")
+
+    any_errors = False
+    for filename in args:
+        try:
+            checker = CodeChecker(filename)
+            checker.set_unique(options.unique)
+            any_errors = any_errors or checker.check_file()
+        except IOError, err:
+            error("%s: %s" % (filename, err.strerror))
+            any_errors = True
+
+    sys.exit(any_errors and 1 or 0)
+
+main()
