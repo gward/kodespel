@@ -8,6 +8,10 @@ def main():
     parser = OptionParser(usage="%prog [options] filename ...")
     parser.add_option("-u", "--unique", action='store_true',
                       help="report each misspelling only once")
+    parser.add_option("-x", "--exclude", action='append', default=[],
+                      metavar="STR",
+                      help="exclude STR from spell-checking -- strip it from "
+                           "input text before splitting into words")
     (options, args) = parser.parse_args()
     if not args:
         parser.error("not enough arguments")
@@ -15,9 +19,13 @@ def main():
     any_errors = False
     for filename in args:
         try:
+            print "checking file %s" % filename
             checker = CodeChecker(filename)
             checker.set_unique(options.unique)
-            any_errors = any_errors or checker.check_file()
+            for s in options.exclude:
+                checker.exclude_string(s)
+            if checker.check_file():
+                any_errors = True
         except IOError, err:
             error("%s: %s" % (filename, err.strerror))
             any_errors = True
