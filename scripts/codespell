@@ -8,6 +8,11 @@ def main():
     parser = OptionParser(usage="%prog [options] filename ...")
     parser.add_option("-u", "--unique", action='store_true',
                       help="report each misspelling only once")
+    parser.add_option("-d", "--dictionary",
+                      action='append', dest='dictionaries', default=[],
+                      metavar="DICT",
+                      help="use custom dictionary DICT (can be a filename "
+                           "or a dictionary name)")
     parser.add_option("-x", "--exclude", action='append', default=[],
                       metavar="STR",
                       help="exclude STR from spell-checking -- strip it from "
@@ -33,6 +38,8 @@ def main():
             any_errors = True
         else:
             checker.set_unique(options.unique)
+            for dictionary in options.dictionaries:
+                checker.add_dictionary(dictionary)
             ispell = checker.get_spell_checker()
             ispell.set_allow_compound(options.compound)
             ispell.set_word_len(options.wordlen)
