@@ -1,0 +1,12 @@
+usr
+argv
+strerror
+errno
+stdout
+stderr
+readline
+
+int
+char
+bool
+
