@@ -14,6 +14,7 @@ import sys, os
 import re
 from glob import glob
 from tempfile import mkstemp
+from sets import Set
 
 assert sys.hexversion >= 0x02030000, "requires Python 2.3 or greater"
 
@@ -23,6 +24,47 @@ def warn(msg):
 
 def error(msg):
     sys.stderr.write("error: %s: %s\n" % (__name__, msg))
+
+
+EXTENSION_LANG = {".py": "python",
+                  ".pl": "perl",
+                  ".pm": "perl",
+                  ".c": "c",
+                  ".h": "c",
+                  ".cpp": "c",
+                  ".hpp": "c",
+                  ".java": "java"}
+
+def determine_languages(filenames):
+    '''
+    Analyze a list of files and return the set of programming
+    languages represented.  Goes by filename first, and then handles
+    scripts (ie. if executable, open and read first line looking
+    for name of interpreter).
+    '''
+    languages = Set()
+    for filename in filenames:
+        ext = os.path.splitext(filename)[1]
+        lang = EXTENSION_LANG.get(ext)
+        if not lang and os.stat(filename).st_mode & 0111:
+            file = open(filename, "rt")
+            first_line = file.readline()
+            file.close()
+
+            if not first_line.startswith("#!"):
+                continue
+            if "python" in first_line:
+                lang = "python"
+            elif "perl" in first_line:
+                lang = "perl"
+
+        if lang:
+            languages.add(lang)
+        else:
+            warn("unable to determine language of file %r" % filename)
+
+    return languages
+
 
 class SpellChecker:
     '''
@@ -142,10 +184,14 @@ class DictionaryCollection(object):
 
         'dict_filename',
 
-        # List of custom dictionaries.  Dictionaries are specified either
+        # The set of programming languages to be checked (this is just
+        # a specialized form of standard dictionary).
+        'languages',
+
+        # List of dictionaries.  Dictionaries are specified either
         # as a filename ("dict/myproject.dict") or a basename ("unix"),
         # which is resolved against the CodeChecker's dict_path.
-        'custom_dictionaries',
+        'dictionaries',
         ]
 
     def __init__(self):
@@ -156,9 +202,10 @@ class DictionaryCollection(object):
 
         self.dict_path = [os.path.join(sys.prefix, "share/codespell"),
                           os.path.join(script_dir, "../dict")]
-        self.custom_dictionaries = []
+        self.languages = []
+        self.dictionaries = []
         self.dict_filename = None       # file with concatenated dictionaries
-        
+
     def close(self):
         if self.dict_filename and os.path.exists(self.dict_filename):
             os.unlink(self.dict_filename)
@@ -167,22 +214,29 @@ class DictionaryCollection(object):
     def __del__(self):
         self.close()
 
+    def set_languages(self, languages):
+        '''
+        Specify the set of programming languages which will be checked
+        (this is just a specialized form of standard dictionary).
+        '''
+        self.languages = list(languages)
+
     def add_dictionary(self, dictionary):
         '''
-        Specify a custom dictionary file, which can either be a working
-        filename, or a base filename which is searched for in 'dict_path'
-        after appending ".dict".
+        Specify a dictionary, which can either be a working filename, or
+        a base filename which is searched for in 'dict_path' after
+        appending ".dict".
         '''
-        self.custom_dictionaries.append(dictionary)
+        self.dictionaries.append(dictionary)
 
-    def find_standard_dictionaries(self):
+    def get_standard_dictionaries(self):
         filenames = []
         for dir in self.dict_path:
             filenames.extend(glob(os.path.join(dir, "*.dict")))
         return filenames
 
     def _create_dict(self):
-        dicts = ["base"] + self.custom_dictionaries
+        dicts = ["base"] + self.languages + self.dictionaries
         dict_files = []
         for dict in dicts:
             # If a working filename was supplied, use it.
@@ -265,14 +319,6 @@ class CodeChecker(object):
 
         ]
 
-    EXTENSION_LANG = {".py": "python",
-                      ".c": "c",
-                      ".h": "c",
-                      ".cpp": "c",
-                      ".hpp": "c",
-                      ".java": "java"}
-
-
     def __init__(self, filename=None, file=None, dictionaries=None):
         self.filename = filename
         if file is None and filename is not None:
@@ -290,14 +336,6 @@ class CodeChecker(object):
         self.dictionaries = dictionaries
         self.unique = False
 
-        # Try to determine the language from the filename, and from
-        # that get the list of exclusions.
-        if filename:
-            ext = os.path.splitext(filename)[1]
-            lang = self.EXTENSION_LANG.get(ext)
-            if lang:
-                self.set_language(lang)
-
     def get_spell_checker(self):
         '''
         Return the SpellChecker instance (wrapper around ispell)
@@ -310,27 +348,6 @@ class CodeChecker(object):
         Exclude 'string' from spell-checking.
         '''
         self.exclude.append(string)
-
-    def set_language(self, lang):
-        '''
-        Set the language for the current file (used to determine the
-        custom dictionaries).
-        '''
-        self.language = lang
-        self.dictionaries.add_dictionary(lang)
-
-    def guess_language(self, first_line):
-        '''
-        Attempt to guess the programming language of the current file
-        by examining the first line of source code.  Mainly useful
-        for Unix scripts with a #! line.
-        '''
-        if not first_line.startswith("#!"):
-            return
-        if "python" in first_line:
-            self.set_language("python")
-        elif "perl" in first_line:
-            self.set_language("perl")
 
     def set_unique(self, unique):
         self.unique = unique
@@ -357,21 +374,11 @@ class CodeChecker(object):
             line = self.exclude_re.sub('', line)
         return self._word_re.findall(line)
 
-
     def _send_words(self):
-        dict_filename = None
-        for line in self.file:
-            # If this is the first line of the file, and we don't yet
-            # know the programming language, try to guess it from the
-            # content of the line (which might be something like
-            # "#!/usr/bin/python" or "#!/usr/bin/perl")
-            if self.line_num == 0:
-                if self.language is None:
-                    self.guess_language(line)
-                dict_filename = self.dictionaries.get_filename()
-                self.ispell.set_dictionary(dict_filename)
-                self.ispell.open()
+        self.ispell.set_dictionary(self.dictionaries.get_filename())
+        self.ispell.open()
 
+        for line in self.file:
             self.line_num += 1
             for word in self.split_line(line):
                 if word in self.locations:
