@@ -291,7 +291,7 @@ class CodeChecker(object):
     # eg. "HTTPResponse", "getHTTPResponse".
     _word_re = re.compile(r'[A-Z]?[a-z]+|[A-Z]+(?![a-z])')
 
-    def split(self, line):
+    def split_line(self, line):
         '''
         Given a line (or larger chunk) of source code, splits it
         into words.  Eg. the string
@@ -315,7 +315,7 @@ class CodeChecker(object):
                 self.guess_language(line)
 
             self.line_num += 1
-            for word in self.split(line):
+            for word in self.split_line(line):
                 if word in self.locations:
                     self.locations[word].append(self.line_num)
                 else:
@@ -330,24 +330,22 @@ class CodeChecker(object):
         Report spelling errors found in the current file to stderr.
         Return true if there were any spelling errors.
         '''
-        messages = []
+        errors = []
         for (bad_word, guesses) in self.ispell.check():
-            if guesses:
-                message = "%s: %s ?" % (bad_word, ", ".join(guesses))
-            else:
-                message = "%s ?" % bad_word
-
+            locations = self.locations[bad_word]
             if self.unique:
-                messages.append((self.locations[bad_word][0], message))
-            else:
-                for line_num in self.locations[bad_word]:
-                    messages.append((line_num, message))
+                del locations[1:]
+            for line_num in locations:
+                errors.append((line_num, bad_word, guesses))
 
-        messages.sort()
-        for (line_num, message) in messages:
-            sys.stderr.write("spelling: %s:%d: %s\n"
-                             % (self.filename, line_num, message))
-        return bool(messages)
+        errors.sort()                   # sort on line number
+        return errors
+
+    def _report(self, messages, file):
+        for (line_num, bad_word, guesses) in messages:
+            guesses = ", ".join(guesses)
+            print >>file, ("%s:%d: %s: %s?"
+                           % (self.filename, line_num, bad_word, guesses))
 
     def check_file(self):
         '''
@@ -356,7 +354,9 @@ class CodeChecker(object):
         '''
         print "spell-checking %r" % self.filename
         self._send_words()
-        return self._check()
+        errors = self._check()
+        self._report(errors, sys.stderr)
+        return bool(errors)
 
 
 if __name__ == "__main__":
