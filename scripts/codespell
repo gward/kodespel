@@ -2,7 +2,8 @@
 
 import sys
 from optparse import OptionParser
-from codespell import CodeChecker, DictionaryCollection, error
+from codespell import CodeChecker, DictionaryCollection, \
+     error, determine_languages
 
 def main():
     parser = OptionParser(usage="%prog [options] filename ...")
@@ -14,6 +15,11 @@ def main():
                       help="use custom dictionary DICT (can be a filename "
                            "or a dictionary name); use multiple times to "
                            "include multiple dictionaries")
+    parser.add_option("-l", "--language",
+                      action='append', dest='languages',
+                      metavar="LANG",
+                      help="specify a programming language (can be used "
+                           "multiple times)")
     parser.add_option("--list-dicts", action='store_true',
                       help="list available dictionaries and exit")
     parser.add_option("--dump-dict", action='store_true',
@@ -38,13 +44,15 @@ def main():
 
     if options.list_dicts:
         dicts = DictionaryCollection()
-        print "\n".join(dicts.find_standard_dictionaries())
+        print "\n".join(dicts.get_standard_dictionaries())
         sys.exit()
 
     elif options.dump_dict:
         dicts = DictionaryCollection()
         for dict in options.dictionaries:
             dicts.add_dictionary(dict)
+        if options.languages:
+            dicts.set_languages(options.languages)
         file = open(dicts.get_filename(), "rt")
         for line in file:
             line = line.strip()
@@ -59,8 +67,16 @@ def main():
     for dictionary in options.dictionaries:
         dicts.add_dictionary(dictionary)
 
+    filenames = args
+
+    languages = options.languages
+    if languages is None:
+        languages = determine_languages(filenames)
+        print "languages: %s" % languages
+    dicts.set_languages(languages)
+
     any_errors = False
-    for filename in args:
+    for filename in filenames:
         try:
             checker = CodeChecker(filename, dictionaries=dicts)
         except IOError, err:
