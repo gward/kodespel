@@ -1,18 +1,18 @@
 '''
-Module for spell-check programming language source code.  The trick is
-that it knows how to split identifiers up into words: e.g. if the token
-getRemaningObjects occurs in source code, it is split into "get",
+Module for spell-checking programming language source code.  The trick
+is that it knows how to split identifiers up into words: e.g. if the
+token getRemaningObjects occurs in source code, it is split into "get",
 "Remaning", "Objects", and those words are piped to ispell, which easily
 detects the spelling error.  Handles various common ways of munging
-words together: identifiers like DoSomething, get_remaning_objects,
-SOME_CONSTENT, and HTTPResponse are all handled correctly.
+words together: identifiers like DoSomethng, get_remaning_objects,
+SOME_CONSTENT, and HTTPRepsonse are all handled correctly.
 
 Requires Python 2.3 or greater.
 '''
 
 import sys, os
 import re
-import select
+from sets import Set
 
 assert sys.hexversion >= 0x02030000, "requires Python 2.3 or greater"
 
@@ -105,7 +105,7 @@ class SpellChecker:
 class CodeChecker(object):
     '''
     Object that reads a source code file, splits it into tokens,
-    splits the tokens into words, and spellchecks each word.
+    splits the tokens into words, and spell-checks each word.
     '''
 
     __slots__ = [
@@ -128,16 +128,23 @@ class CodeChecker(object):
         'ispell',
 
         # The programming language of the current file (used to determine
-        # exempt words).  This can be derived either from the filename
+        # excluded words).  This can be derived either from the filename
         # or from the first line of a script.
         'language',
 
-        # List of strings that are exempt from spell-checking -- these
-        # are removed from input text before it is split into words.
-        'exempt_strings',
+        # User-specified excluded strings; these are added to
+        # BASE_EXCLUDE and one of the LANG_EXCLUDE before creating
+        # 'exclude' and 'exclude_re'.
+        'custom_exclude',
 
-        # Regex used to strip exempt strings from input.
-        'exempt_re',
+        # Set of strings and words that are excluded from
+        # spell-checking.
+
+
+        'exclude',
+
+        # Regex used to strip excluded strings from input.
+        'exclude_re',
 
         # If true, report each misspelling only once (at its first
         # occurrence).
@@ -145,30 +152,45 @@ class CodeChecker(object):
 
         ]
 
-    # Exemptions -- tokens that should not be split into words and should
-    # not be spell-checked.  (Exemptions are processed before splitting into
-    # words to allow exempting project-specific product names, which are
-    # often in StudlyCaps.)
+    # Exclusions -- tokens that should not be split into words and
+    # should not be spell-checked.  These are removed from input text
+    # before it is split into words, and then again from the list of
+    # split words.  (We have to remove them before splitting so people
+    # can exclude local mixed-case trade names like "WhizzBANGulator" --
+    # you don't want codespell to split that into words and then have to
+    # exclude the individual words.  But we also have to remove them
+    # after splitting because of method names like "parse_args", where
+    # "args" is an excluded word.)
 
-    # Exemptions for any programming language.  There is a slight Unix bias
-    # here.  ;-)
-    BASE_EXEMPTIONS = ["usr",               # as in "#!/usr/bin/python"
-                       "argv",              # Python; C and Java by convention
-                       "strerror",          # Python, C
-                       "errno",
+    # Exclusions that apply to several programming languages.  There is
+    # a slight Unix bias here.  ;-)
+    BASE_EXCLUDE = ["usr",               # as in "#!/usr/bin/python"
+                    "argv",              # Python; C and Java by convention
+                    "strerror",          # Python, C
+                    "errno",
+                    "stdout",
+                    "stderr",
+                    "readline",
+                    
+                    # Data type names in C, C++, Python, Java, ...
+                    "int",
+                    "char",
+                    "bool",
+                   ]
 
-                       # Primitive datatypes in Java, C, C++, ...
-                       "int",
-                       "char",
-                      ]
-
-    LANG_EXEMPTIONS = {
+    # Per-language exclusions.
+    LANG_EXCLUDE = {
         "python": ["def",
+                   "elif",
+                   "sys",
+                   "os",
+                   "startswith",
+                   "endswith",
                    "optparse",
-                   "prog",                  # strong convention ;-)
+                   "prog",
                    "args",
+                   "metavar",
                   ],
-
 
         "c":      [
                   ],
@@ -200,31 +222,48 @@ class CodeChecker(object):
         self.ispell = SpellChecker()
 
         self.language = None
-        self.exempt_strings = []
-        self.exempt_re = None
+        self.custom_exclude = []
+        self.exclude = {}
+        self.exclude_re = None
         self.unique = False
 
         # Try to determine the language from the filename, and from
-        # that get the list of exemptions.
+        # that get the list of exclusions.
         if filename:
             ext = os.path.splitext(filename)[1]
             lang = self.EXTENSION_LANG.get(ext)
             if lang:
                 self.set_language(lang)
 
+    def exclude_string(self, string):
+        '''
+        Exclude 'string' from spell-checking.
+        '''
+        self.custom_exclude.append(string)
+
     def set_language(self, lang):
         '''
         Set the language for the current file, and set the list
-        of exempt words based on the language.  Raises ValueError
+        of excluded words based on the language.  Raises ValueError
         if 'lang' is unknown.
         '''
-        if lang not in self.LANG_EXEMPTIONS:
+        if lang not in self.LANG_EXCLUDE:
             raise ValueError("unknown language: %r" % lang)
         self.language = lang
-        self.exempt_strings = (self.BASE_EXEMPTIONS +
-                               self.LANG_EXEMPTIONS[self.language])
+
+        # Determine the final list of excluded strings (and, more
+        # importantly, the regex that will be used to strip them from
+        # input text).
+        exclusions = (self.BASE_EXCLUDE +
+                      self.LANG_EXCLUDE[self.language] +
+                      self.custom_exclude)
+        self.exclude_re = re.compile(r'\b(' +
+                                     "|".join(exclusions) +
+                                     r')\b')
         print "language is %r" % self.language
-        print "exempt strings: %r" % self.exempt_strings
+        print "excluded strings: %r" % exclusions
+        print "exclusion regex: %s" % self.exclude_re.pattern
+        self.exclude = Set(exclusions)
 
     def guess_language(self, first_line):
         '''
@@ -260,9 +299,11 @@ class CodeChecker(object):
         is split into
           ["match", "pat", "search", "current", "line", "pos"]
         '''
-        if self.exempt_re:
-            line = self.exempt_re.sub('', line)
-        return self._word_re.findall(line)
+        if self.exclude_re:
+            line = self.exclude_re.sub('', line)
+        return [word
+                for word in self._word_re.findall(line)
+                if word not in self.exclude]
 
     def _send_words(self):
         for line in self.file:
@@ -279,6 +320,7 @@ class CodeChecker(object):
                     self.locations[word].append(self.line_num)
                 else:
                     self.locations[word] = [self.line_num]
+                    #print "%d: %s" % (self.line_num, word)
                     self.ispell.send(word)
 
         self.ispell.done_sending()
@@ -312,7 +354,7 @@ class CodeChecker(object):
         Spell-check the current file, reporting errors to stderr.
         Return true if there were any spelling errors.
         '''
-        self.exempt_re = re.compile("|".join(self.exempt_strings))
+        print "spell-checking %r" % self.filename
         self._send_words()
         return self._check()
 
