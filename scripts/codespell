@@ -2,7 +2,7 @@
 
 import sys
 from optparse import OptionParser
-from codespell import CodeChecker, SpellingDictionary, error
+from codespell import CodeChecker, DictionaryCollection, error
 
 def main():
     parser = OptionParser(usage="%prog [options] filename ...")
@@ -37,12 +37,12 @@ def main():
                          "--list-dicts or --dump-dict")
 
     if options.list_dicts:
-        dicts = SpellingDictionary()
+        dicts = DictionaryCollection()
         print "\n".join(dicts.find_standard_dictionaries())
         sys.exit()
 
     elif options.dump_dict:
-        dicts = SpellingDictionary()
+        dicts = DictionaryCollection()
         for dict in options.dictionaries:
             dicts.add_dictionary(dict)
         file = open(dicts.get_filename(), "rt")
@@ -55,14 +55,14 @@ def main():
     if not args:
         parser.error("not enough arguments")
 
-    dicts = SpellingDictionary()
+    dicts = DictionaryCollection()
     for dictionary in options.dictionaries:
         dicts.add_dictionary(dictionary)
 
     any_errors = False
     for filename in args:
         try:
-            checker = CodeChecker(filename, dictionary=dicts)
+            checker = CodeChecker(filename, dictionaries=dicts)
         except IOError, err:
             error("%s: %s" % (filename, err.strerror))
             any_errors = True

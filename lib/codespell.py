@@ -48,10 +48,10 @@ class SpellChecker:
         self.word_len = word_len
 
     def open(self):
-        # Use -C to handle identifiers like "hashopen" or
-        # "getallmatchingheaders" (which are conventional in Python).
-        #cmd = ["ispell", "-a"]
-        cmd = ["aspell", "-a", "--sug-mode=ultra"]
+        cmd = ["ispell", "-a"]
+        # Hmm, aspell's "-p" personal word list is *not* a simple
+        # word list like with ispell.
+        #cmd = ["aspell", "-a", "--sug-mode=ultra"]
         if self.allow_compound:
             cmd.append("-C")
         if self.word_len is not None:
@@ -127,12 +127,15 @@ class SpellChecker:
         return report
 
 
-# XXX argh, terminology is horribly inconsistent here -- "dictionary"
-# can be a standard .dict file installed by codespell identified by
-# basename ("unix", "java"), or a custom file specified by the user
-# ("myproject.dict"), or the concatenation of a bunch of either one.
+class DictionaryCollection(object):
+    '''
+    A collection of dictionaries that can be used for spell-checking
+    many files (ie. with many instances of CodeChecker).  A dictionary
+    may be standard dictionary, shipped and installed with codechecker
+    and identified by name (e.g. "unix", "java"); or it may be a custom
+    dictionary, identified by filename (e.g. "./dict/myproject.dict").
+    '''
 
-class SpellingDictionary(object):
     __slots__ = [
         # List of directories to search for dictionary files.
         'dict_path',
@@ -205,6 +208,7 @@ class SpellingDictionary(object):
             out_file.write(in_file.read())
             in_file.close()
 
+        out_file.close()
         self.dict_filename = out_filename
 
     def get_filename(self):
@@ -251,9 +255,9 @@ class CodeChecker(object):
         # Regex used to strip excluded strings from input.
         'exclude_re',
 
-        # SpellingDictionary instance for finding and concatenating
+        # DictionaryCollection instance for finding and concatenating
         # various custom dictionaries.
-        'dictionary',
+        'dictionaries',
 
         # If true, report each misspelling only once (at its first
         # occurrence).
@@ -269,7 +273,7 @@ class CodeChecker(object):
                       ".java": "java"}
 
 
-    def __init__(self, filename=None, file=None, dictionary=None):
+    def __init__(self, filename=None, file=None, dictionaries=None):
         self.filename = filename
         if file is None and filename is not None:
             self.file = open(filename, "rt")
@@ -283,7 +287,7 @@ class CodeChecker(object):
         self.language = None
         self.exclude = []
         self.exclude_re = None
-        self.dictionary = dictionary
+        self.dictionaries = dictionaries
         self.unique = False
 
         # Try to determine the language from the filename, and from
@@ -310,10 +314,10 @@ class CodeChecker(object):
     def set_language(self, lang):
         '''
         Set the language for the current file (used to determine the
-        custom dictionary).
+        custom dictionaries).
         '''
         self.language = lang
-        self.dictionary.add_dictionary(lang)
+        self.dictionaries.add_dictionary(lang)
 
     def guess_language(self, first_line):
         '''
@@ -364,7 +368,7 @@ class CodeChecker(object):
             if self.line_num == 0:
                 if self.language is None:
                     self.guess_language(line)
-                dict_filename = self.dictionary.get_filename()
+                dict_filename = self.dictionaries.get_filename()
                 self.ispell.set_dictionary(dict_filename)
                 self.ispell.open()
 
