@@ -20,6 +20,12 @@ dir
 bsddb
 dbm
 
+islink
+isfile
+splitext
+rstrip
+lstrip
+
 optparse
 prog
 args
@@ -29,3 +35,4 @@ metavar
 py
 pyc
 pyo
+
