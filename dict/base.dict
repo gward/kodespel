@@ -2,6 +2,7 @@ usr
 argv
 strerror
 errno
+stdin
 stdout
 stderr
 readline

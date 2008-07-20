@@ -40,6 +40,7 @@ def main():
     parser.add_option("-W", "--wordlen", type='int', default=2,
                       metavar="N",
                       help="ignore words with <= N characters")
+    parser.set_defaults(compound=True)
     (options, args) = parser.parse_args()
     if options.list_dicts or options.dump_dict:
         if args:

@@ -7,18 +7,19 @@ detects the spelling error.  Handles various common ways of munging
 words together: identifiers like DoSomethng, get_remaning_objects,
 SOME_CONSTENT, and HTTPRepsonse are all handled correctly.
 
-Requires Python 2.3 or greater.
+Requires Python 2.4 or greater.
 '''
 
 import sys, os
 import re
+import subprocess
 from glob import glob
 from tempfile import mkstemp
 from sets import Set
 
 __revision__ = "$Rev$"
 
-assert sys.hexversion >= 0x02030000, "requires Python 2.3 or greater"
+assert sys.hexversion >= 0x02040000, "requires Python 2.4 or greater"
 
 
 def warn(msg):
@@ -102,8 +103,19 @@ class SpellChecker:
             cmd.append("-W%d" % self.word_len)
         if self.dictionary:
             cmd.extend(["-p", self.dictionary])
+
         #print " ".join(cmd)
-        (self.ispell_in, self.ispell_out) = os.popen2(cmd, "t", 1)
+        try:
+            pipe = subprocess.Popen(cmd,
+                                    stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE,
+                                    close_fds=True)
+        except OSError, err:
+            raise OSError("error executing %s: %s" % (cmd[0], err.strerror))
+
+        self.ispell_in = pipe.stdin
+        self.ispell_out = pipe.stdout
+
         firstline = self.ispell_out.readline()
         assert firstline.startswith("@(#)"), \
                "expected \"@(#)\" line from ispell (got %r)" % firstline
@@ -175,7 +187,7 @@ class DictionaryCollection(object):
     '''
     A collection of dictionaries that can be used for spell-checking
     many files (ie. with many instances of CodeChecker).  A dictionary
-    may be standard dictionary, shipped and installed with codechecker
+    may be standard dictionary, shipped and installed with codespell
     and identified by name (e.g. "unix", "java"); or it may be a custom
     dictionary, identified by filename (e.g. "./dict/myproject.dict").
     '''
