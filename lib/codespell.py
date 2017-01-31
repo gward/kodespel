@@ -95,9 +95,6 @@ class SpellChecker:
 
     def open(self):
         cmd = ["ispell", "-a"]
-        # Hmm, aspell's "-p" personal word list is *not* a simple
-        # word list like with ispell.
-        #cmd = ["aspell", "-a", "--sug-mode=ultra"]
         if self.allow_compound:
             cmd.append("-C")
         if self.word_len is not None:
@@ -105,7 +102,6 @@ class SpellChecker:
         if self.dictionary:
             cmd.extend(["-p", self.dictionary])
 
-        #print " ".join(cmd)
         try:
             pipe = subprocess.Popen(cmd,
                                     stdin=subprocess.PIPE,
@@ -153,11 +149,6 @@ class SpellChecker:
         '''
         report = []                     # list of (bad_word, suggestions)
         while True:
-            #(ready, _, _) = select.select([self.ispell_out], [], [])
-            #if not ready:               # nothing to read
-            #    break
-            #assert ready[0] is self.ispell_out
-
             line = self.ispell_out.readline()
             if not line:
                 break
@@ -269,10 +260,8 @@ class DictionaryCollection(object):
                     warn("%s dictionary not found" % dict)
 
         (out_fd, out_filename) = mkstemp(".dict", "codespell-")
-        #print "creating %r" % out_filename
         out_file = os.fdopen(out_fd, "wt")
         for filename in dict_files:
-            #print "appending %r" % filename
             in_file = open(filename, "rt")
             out_file.write(in_file.read())
             in_file.close()
