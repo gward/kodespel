@@ -10,7 +10,8 @@ SOME_CONSTENT, and HTTPRepsonse are all handled correctly.
 Requires Python 2.4 or greater.
 '''
 
-import sys, os
+import sys
+import os
 import re
 import subprocess
 from glob import glob
@@ -22,6 +23,7 @@ assert sys.hexversion >= 0x02040000, "requires Python 2.4 or greater"
 
 def warn(msg):
     sys.stderr.write("warning: %s: %s\n" % (__name__, msg))
+
 
 def error(msg):
     sys.stderr.write("error: %s: %s\n" % (__name__, msg))
@@ -35,6 +37,7 @@ EXTENSION_LANG = {".py": "python",
                   ".cpp": "c",
                   ".hpp": "c",
                   ".java": "java"}
+
 
 def determine_languages(filenames):
     '''
@@ -116,7 +119,7 @@ class SpellChecker:
 
         firstline = self.ispell_out.readline()
         assert firstline.startswith("@(#)"), \
-               "expected \"@(#)\" line from ispell (got %r)" % firstline
+            "expected \"@(#)\" line from ispell (got %r)" % firstline
 
         # Put ispell in terse mode (no output for correctly-spelled
         # words).
@@ -204,7 +207,7 @@ class DictionaryCollection(object):
         # as a filename ("dict/myproject.dict") or a basename ("unix"),
         # which is resolved against the CodeChecker's dict_path.
         'dictionaries',
-        ]
+    ]
 
     def __init__(self):
         prog = sys.argv[0]
@@ -282,8 +285,9 @@ class DictionaryCollection(object):
             self._create_dict()
             assert (self.dict_filename is not None and
                     os.path.isfile(self.dict_filename)), \
-                   "bad dict_filename: %r" % self.dict_filename
+                "bad dict_filename: %r" % self.dict_filename
         return self.dict_filename
+
 
 class CodeChecker(object):
     '''
@@ -328,8 +332,7 @@ class CodeChecker(object):
         # If true, report each misspelling only once (at its first
         # occurrence).
         'unique',
-
-        ]
+    ]
 
     def __init__(self, filename=None, file=None, dictionaries=None):
         self.filename = filename

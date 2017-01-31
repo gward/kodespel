@@ -2,8 +2,9 @@
 
 import sys
 from optparse import OptionParser
-from codespell import CodeChecker, DictionaryCollection, \
-     error, determine_languages
+from codespell import \
+    CodeChecker, DictionaryCollection, error, determine_languages
+
 
 def main():
     parser = OptionParser(usage="%prog [options] filename ...")
