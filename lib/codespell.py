@@ -125,7 +125,7 @@ class SpellChecker:
         # Total number of unique spelling errors seen.
         self.total_errors = 0
 
-    def close():
+    def close(self):
         in_status = self.ispell_in.close()
         out_status = self.ispell_out.close()
         if in_status != out_status:
