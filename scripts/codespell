@@ -5,12 +5,9 @@ from optparse import OptionParser
 from codespell import CodeChecker, DictionaryCollection, \
      error, determine_languages
 
-__revision__ = "$Rev$"
-
 def main():
-    parser = OptionParser(usage="%prog [options] filename ...",
-                          version="%prog r" + __revision__.split()[1])
-                                  
+    parser = OptionParser(usage="%prog [options] filename ...")
+
     parser.add_option("-u", "--unique", action='store_true',
                       help="report each misspelling only once")
     parser.add_option("-d", "--dictionary",

@@ -17,8 +17,6 @@ from glob import glob
 from tempfile import mkstemp
 from sets import Set
 
-__revision__ = "$Rev$"
-
 assert sys.hexversion >= 0x02040000, "requires Python 2.4 or greater"
 
 
