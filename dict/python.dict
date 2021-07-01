@@ -20,12 +20,15 @@ dir
 bsddb
 dbm
 
+isdir
 islink
 isfile
+makedirs
 splitext
 rstrip
 lstrip
 
+argparse
 optparse
 prog
 args
