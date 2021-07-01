@@ -7,7 +7,7 @@ detects the spelling error.  Handles various common ways of munging
 words together: identifiers like DoSomethng, get_remaning_objects,
 SOME_CONSTENT, and HTTPRepsonse are all handled correctly.
 
-Requires Python 2.4 or greater.
+Requires Python 3.6 or greater.
 '''
 
 import sys
@@ -16,9 +16,8 @@ import re
 import subprocess
 from glob import glob
 from tempfile import mkstemp
-from sets import Set
 
-assert sys.hexversion >= 0x02040000, "requires Python 2.4 or greater"
+assert sys.hexversion >= 0x03060000, "requires Python 3.6 or greater"
 
 
 def warn(msg):
@@ -46,11 +45,11 @@ def determine_languages(filenames):
     scripts (ie. if executable, open and read first line looking
     for name of interpreter).
     '''
-    languages = Set()
+    languages = set()
     for filename in filenames:
         ext = os.path.splitext(filename)[1]
         lang = EXTENSION_LANG.get(ext)
-        if not lang and os.stat(filename).st_mode & 0111:
+        if not lang and os.stat(filename).st_mode & 0o111:
             file = open(filename, "rt")
             first_line = file.readline()
             file.close()
@@ -106,8 +105,9 @@ class SpellChecker:
             pipe = subprocess.Popen(cmd,
                                     stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE,
-                                    close_fds=True)
-        except OSError, err:
+                                    close_fds=True,
+                                    encoding="utf-8")
+        except OSError as err:
             raise OSError("error executing %s: %s" % (cmd[0], err.strerror))
 
         self.ispell_in = pipe.stdin
@@ -412,8 +412,9 @@ class CodeChecker(object):
     def _report(self, messages, file):
         for (line_num, bad_word, guesses) in messages:
             guesses = ", ".join(guesses)
-            print >>file, ("%s:%d: %s: %s?"
-                           % (self.filename, line_num, bad_word, guesses))
+            print("%s:%d: %s: %s?"
+                  % (self.filename, line_num, bad_word, guesses),
+                  file=file)
 
     def check_file(self):
         '''

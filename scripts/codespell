@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import sys
 from optparse import OptionParser
@@ -47,7 +47,7 @@ def main():
 
     if options.list_dicts:
         dicts = DictionaryCollection()
-        print "\n".join(dicts.get_standard_dictionaries())
+        print("\n".join(dicts.get_standard_dictionaries()))
         sys.exit()
 
     elif options.dump_dict:
@@ -60,7 +60,7 @@ def main():
         for line in file:
             line = line.strip()
             if line:
-                print line
+                print(line)
         sys.exit()
 
     if not args:
@@ -75,14 +75,14 @@ def main():
     languages = options.languages
     if languages is None:
         languages = determine_languages(filenames)
-        print "languages: %s" % languages
+        print("languages: %s" % languages)
     dicts.set_languages(languages)
 
     any_errors = False
     for filename in filenames:
         try:
             checker = CodeChecker(filename, dictionaries=dicts)
-        except IOError, err:
+        except IOError as err:
             error("%s: %s" % (filename, err.strerror))
             any_errors = True
         else:
