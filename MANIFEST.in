@@ -1,3 +1,5 @@
 include dict/*.dict
 include MANIFEST.in
 include scripts/codespell
+include test.sh
+include tests/*.py
