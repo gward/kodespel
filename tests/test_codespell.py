@@ -18,6 +18,19 @@ class TestCodeChecker:
                 'HTTPResponse getXMLElement',
                 ['HTTP', 'Response', 'get', 'XML', 'Element']
             ),
+            (
+                "args.reps = float('+inf')",
+                ['args', 'reps', 'float', 'inf']
+            ),
+            (
+                "help='run /bin/sh -c CMD')",
+                ['help', 'run', 'bin', 'sh', 'c', 'CMD']
+            ),
+            (
+                # hmmm: is this really the best way to handle O'Something?
+                "Mr. O'Reilly & Sons Ltd.",
+                ['Mr', 'O', 'Reilly', 'Sons', 'Ltd']
+            )
         ]
 
         for (input, expect) in tests:

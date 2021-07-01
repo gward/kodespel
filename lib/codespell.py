@@ -364,7 +364,7 @@ class CodeChecker(object):
     # "GetNext", "HTTP_NOT_FOUND", "HttpResponse", etc.  Case 2 is
     # needed for uppercase acronyms in mixed-case identifiers,
     # eg. "HTTPResponse", "getHTTPResponse".
-    _word_re = re.compile(r'[A-Z]?[a-z\']+|[A-Z\']+(?![a-z])')
+    _word_re = re.compile(r'[A-Z]?[a-z]+|[A-Z]+(?![a-z])')
 
     def split_line(self, line):
         '''
