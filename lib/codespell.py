@@ -175,7 +175,7 @@ class SpellChecker:
         return report
 
 
-class DictionaryCollection(object):
+class DictionaryCollection:
     '''
     A collection of dictionaries that can be used for spell-checking
     many files (ie. with many instances of CodeChecker).  A dictionary
@@ -278,7 +278,7 @@ class DictionaryCollection(object):
         return self.dict_filename
 
 
-class CodeChecker(object):
+class CodeChecker:
     '''
     Object that reads a source code file, splits it into tokens,
     splits the tokens into words, and spell-checks each word.
