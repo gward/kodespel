@@ -27,10 +27,13 @@ class TestCodeChecker:
                 ['help', 'run', 'bin', 'sh', 'c', 'CMD']
             ),
             (
-                # hmmm: is this really the best way to handle O'Something?
                 "Mr. O'Reilly & Sons Ltd.",
-                ['Mr', 'O', 'Reilly', 'Sons', 'Ltd']
-            )
+                ['Mr', 'O\'Reilly', 'Sons', 'Ltd']
+            ),
+            (
+                "// these aren't in the spec",
+                ['these', 'aren\'t', 'in', 'the', 'spec']
+            ),
         ]
 
         for (input, expect) in tests:

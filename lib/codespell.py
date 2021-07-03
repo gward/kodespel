@@ -356,15 +356,26 @@ class CodeChecker:
     def set_unique(self, unique):
         self.unique = unique
 
-    # A word is either:
-    #   1) a string of letters, optionally capitalized; or
-    #   2) a string of uppercase letters not immediately followed
-    #      by a lowercase letter
-    # Case 1 handles almost everything, eg. "getNext", "get_next",
-    # "GetNext", "HTTP_NOT_FOUND", "HttpResponse", etc.  Case 2 is
-    # needed for uppercase acronyms in mixed-case identifiers,
-    # eg. "HTTPResponse", "getHTTPResponse".
-    _word_re = re.compile(r'[A-Z]?[a-z]+|[A-Z]+(?![a-z])')
+    # A word can match one of 3 patterns.
+    _word_re = re.compile(
+        # Case 1: a string of mixed-case letters interspersed with
+        # single apostrophes: aren't, O'Reilly, rock'n'roll. This is
+        # for regular English text in comments and strings. It's not
+        # the common case, but has to come first because of regex
+        # matching rules.
+        r'[A-Za-z]+(?:\'[A-Za-z]+)+|'
+
+        # Case 2: a string of letters, optionally capitalized; this
+        # covers almost everything: getNext, get_next, GetNext,
+        # HTTP_NOT_FOUND, HttpResponse, etc.
+        r'[A-Z]?[a-z]+|'
+
+        # Case 3: a string of uppercase letters not immediately
+        # followed by a lowercase letter. Needed for uppercase
+        # acronyms in mixed-case identifiers, eg. "HTTPResponse",
+        # "getHTTPResponse".
+        r'[A-Z]+(?![a-z])'
+    )
 
     def split_line(self, line):
         '''
