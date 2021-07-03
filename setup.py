@@ -4,6 +4,6 @@ from setuptools import setup
 dict_files = glob("dict/*.dict")
 
 setup(
-    packages=["codespell"],
-    data_files=[('share/codespell', dict_files)],
+    packages=["kodespel"],
+    data_files=[('share/kodespel', dict_files)],
 )

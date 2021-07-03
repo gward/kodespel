@@ -182,7 +182,7 @@ class DictionaryCollection:
     '''
     A collection of dictionaries that can be used for spell-checking
     many files (ie. with many instances of CodeChecker).  A dictionary
-    may be standard dictionary, shipped and installed with codespell
+    may be standard dictionary, shipped and installed with kodespel
     and identified by name (e.g. "unix", "java"); or it may be a custom
     dictionary, identified by filename (e.g. "./dict/myproject.dict").
     '''
@@ -209,7 +209,7 @@ class DictionaryCollection:
             prog = os.path.join(os.path.dirname(prog), os.readlink(prog))
         script_dir = os.path.dirname(prog)
 
-        self.dict_path = [os.path.join(sys.prefix, "share/codespell"),
+        self.dict_path = [os.path.join(sys.prefix, "share/kodespel"),
                           os.path.join(script_dir, "../dict")]
         self.languages = []
         self.dictionaries = []
@@ -262,7 +262,7 @@ class DictionaryCollection:
                 else:
                     warn("%s dictionary not found" % dict)
 
-        (out_fd, out_filename) = mkstemp(".dict", "codespell-")
+        (out_fd, out_filename) = mkstemp(".dict", "kodespel-")
         out_file = os.fdopen(out_fd, "wt")
         for filename in dict_files:
             in_file = open(filename, "rt")

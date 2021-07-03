@@ -1,9 +1,9 @@
-from codespell import codespell
+from kodespel import kodespel
 
 
 class TestCodeChecker:
     def test_split_line(self):
-        checker = codespell.CodeChecker()
+        checker = kodespel.CodeChecker()
 
         tests = [
             (

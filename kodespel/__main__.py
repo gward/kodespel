@@ -2,7 +2,7 @@
 
 import sys
 from optparse import OptionParser
-from codespell.codespell import \
+from kodespel.kodespel import \
     CodeChecker, DictionaryCollection, error, determine_languages
 
 

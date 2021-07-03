@@ -1,4 +1,4 @@
 #!/bin/sh
 
-flake8 codespell tests
-PYTHONPATH=. pytest codespell tests
+flake8 kodespel tests
+PYTHONPATH=. pytest kodespel tests
