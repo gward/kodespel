@@ -7,7 +7,7 @@ class TestCodeChecker:
 
         tests = [
             (
-                '"match = pat.search(current_line, 0, pos)"',
+                'match = pat.search(current_line, 0, pos)',
                 ['match', 'pat', 'search', 'current', 'line', 'pos']
             ),
             (
