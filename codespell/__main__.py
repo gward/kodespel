@@ -2,7 +2,7 @@
 
 import sys
 from optparse import OptionParser
-from codespell import \
+from codespell.codespell import \
     CodeChecker, DictionaryCollection, error, determine_languages
 
 
@@ -98,4 +98,6 @@ def main():
     dicts.close()
     sys.exit(any_errors and 1 or 0)
 
-main()
+
+if __name__ == '__main__':
+    main()

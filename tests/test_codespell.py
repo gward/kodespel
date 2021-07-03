@@ -1,4 +1,4 @@
-import codespell
+from codespell import codespell
 
 
 class TestCodeChecker:

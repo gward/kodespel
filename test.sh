@@ -1,5 +1,4 @@
 #!/bin/sh
 
-PYTHONPATH=lib; export PYTHONPATH
-flake8 lib scripts tests
-pytest tests lib
+flake8 codespell tests
+PYTHONPATH=. pytest codespell tests
