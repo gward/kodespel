@@ -35,4 +35,3 @@ class TestCodeChecker:
 
         for (input, expect) in tests:
             assert checker.split_line(input) == expect
-

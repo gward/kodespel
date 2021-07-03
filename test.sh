@@ -1,4 +1,5 @@
 #!/bin/sh
 
 PYTHONPATH=lib; export PYTHONPATH
-pytest .
+flake8 lib scripts tests
+pytest tests lib
