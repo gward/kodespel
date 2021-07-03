@@ -28,14 +28,17 @@ def error(msg):
     sys.stderr.write("error: %s: %s\n" % (__name__, msg))
 
 
-EXTENSION_LANG = {".py": "python",
-                  ".pl": "perl",
-                  ".pm": "perl",
-                  ".c": "c",
-                  ".h": "c",
-                  ".cpp": "c",
-                  ".hpp": "c",
-                  ".java": "java"}
+EXTENSION_LANG = {
+    ".go": "go",
+    ".py": "python",
+    ".pl": "perl",
+    ".pm": "perl",
+    ".c": "c",
+    ".h": "c",
+    ".cpp": "c",
+    ".hpp": "c",
+    ".java": "java",
+}
 
 
 def determine_languages(filenames):
