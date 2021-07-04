@@ -17,11 +17,6 @@ def main():
                       help="use custom dictionary DICT (can be a filename "
                            "or a dictionary name); use multiple times to "
                            "include multiple dictionaries")
-    parser.add_option("-l", "--language",
-                      action='append', dest='languages',
-                      metavar="LANG",
-                      help="specify a programming language (can be used "
-                           "multiple times)")
     parser.add_option("--list-dicts", action='store_true',
                       help="list available dictionaries and exit")
     parser.add_option("--dump-dict", action='store_true',
@@ -54,8 +49,6 @@ def main():
         dicts = DictionaryCollection()
         for dict in options.dictionaries:
             dicts.add_dictionary(dict)
-        if options.languages:
-            dicts.set_languages(options.languages)
         file = open(dicts.get_filename(), "rt")
         for line in file:
             line = line.strip()
@@ -72,11 +65,9 @@ def main():
 
     filenames = args
 
-    languages = options.languages
-    if languages is None:
-        languages = determine_languages(filenames)
-        print("languages: %s" % languages)
-    dicts.set_languages(languages)
+    languages = determine_languages(filenames)
+    for lang in languages:
+        dicts.add_dictionary(lang)
 
     any_errors = False
     for filename in filenames:

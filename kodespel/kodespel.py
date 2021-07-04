@@ -213,9 +213,10 @@ class DictionaryCollection:
             prog = os.path.join(os.path.dirname(prog), os.readlink(prog))
         script_dir = os.path.dirname(prog)
 
-        self.dict_path = [os.path.join(sys.prefix, "share/kodespel"),
-                          os.path.join(script_dir, "../dict")]
-        self.languages = []
+        self.dict_path = [
+            os.path.join(sys.prefix, "share/kodespel"),
+            os.path.join(script_dir, "../dict"),
+        ]
         self.dictionaries = []
         self.dict_filename = None       # file with concatenated dictionaries
 
@@ -232,13 +233,6 @@ class DictionaryCollection:
     def __del__(self):
         self.close()
 
-    def set_languages(self, languages):
-        '''
-        Specify the set of programming languages which will be checked
-        (this is just a specialized form of standard dictionary).
-        '''
-        self.languages = list(languages)
-
     def add_dictionary(self, dictionary):
         '''
         Specify a dictionary, which can either be a working filename, or
@@ -254,7 +248,7 @@ class DictionaryCollection:
         return filenames
 
     def _create_dict(self):
-        dicts = ["base"] + self.languages + self.dictionaries
+        dicts = ["base"] + self.dictionaries
         dict_files = []
         for dict in dicts:
             # If a working filename was supplied, use it.
