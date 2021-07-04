@@ -216,6 +216,7 @@ class DictionaryCollection:
         self.dict_path = [
             os.path.join(sys.prefix, "share/kodespel"),
             os.path.join(script_dir, "../dict"),
+            os.path.join(os.path.dirname(__file__), "../dict"),
         ]
         self.dictionaries = []
         self.dict_filename = None       # file with concatenated dictionaries
