@@ -41,15 +41,16 @@ def main():
                          "--list-dicts or --dump-dict")
 
     if options.list_dicts:
-        dicts = DictionaryCollection()
-        print("\n".join(dicts.get_standard_dictionaries()))
+        dictset = DictionaryCollection()
+        print("\n".join(dictset.get_standard_dictionaries()))
         sys.exit()
 
-    elif options.dump_dict:
-        dicts = DictionaryCollection()
-        for dict in options.dictionaries:
-            dicts.add_dictionary(dict)
-        file = open(dicts.get_filename(), "rt")
+    dictset = DictionaryCollection()
+    for dict in options.dictionaries:
+        dictset.add_dictionary(dict)
+
+    if options.dump_dict:
+        file = open(dictset.get_filename(), "rt")
         for line in file:
             line = line.strip()
             if line:
@@ -59,20 +60,16 @@ def main():
     if not args:
         parser.error("not enough arguments")
 
-    dicts = DictionaryCollection()
-    for dictionary in options.dictionaries:
-        dicts.add_dictionary(dictionary)
-
     filenames = args
 
     languages = determine_languages(filenames)
     for lang in languages:
-        dicts.add_dictionary(lang)
+        dictset.add_dictionary(lang)
 
     any_errors = False
     for filename in filenames:
         try:
-            checker = CodeChecker(filename, dictionaries=dicts)
+            checker = CodeChecker(filename, dictionaries=dictset)
         except IOError as err:
             error("%s: %s" % (filename, err.strerror))
             any_errors = True
@@ -86,7 +83,7 @@ def main():
             if checker.check_file():
                 any_errors = True
 
-    dicts.close()
+    dictset.close()
     sys.exit(any_errors and 1 or 0)
 
 
