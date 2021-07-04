@@ -28,6 +28,10 @@ def error(msg):
     sys.stderr.write("error: %s: %s\n" % (__name__, msg))
 
 
+def _stdrepr(self):
+    return '<%s at %x: %s>' % (type(self).__name__, id(self), self)
+
+
 EXTENSION_LANG = {
     ".go": "go",
     ".py": "python",
@@ -215,6 +219,11 @@ class DictionaryCollection:
         self.dictionaries = []
         self.dict_filename = None       # file with concatenated dictionaries
 
+    def __str__(self):
+        return ','.join(self.dictionaries)
+
+    __repr__ = _stdrepr
+
     def close(self):
         if self.dict_filename and os.path.exists(self.dict_filename):
             os.unlink(self.dict_filename)
@@ -342,6 +351,11 @@ class CodeChecker:
         self.exclude_re = None
         self.dictionaries = dictionaries
         self.unique = False
+
+    def __str__(self):
+        return self.filename or '?'
+
+    __repr__ = _stdrepr
 
     def get_spell_checker(self):
         '''
