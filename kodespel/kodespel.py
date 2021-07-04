@@ -10,12 +10,12 @@ SOME_CONSTENT, and HTTPRepsonse are all handled correctly.
 Requires Python 3.6 or greater.
 '''
 
-import sys
+import glob
 import os
 import re
 import subprocess
-from glob import glob
-from tempfile import mkstemp
+import sys
+import tempfile
 
 assert sys.hexversion >= 0x03060000, "requires Python 3.6 or greater"
 
@@ -245,7 +245,7 @@ class DictionaryCollection:
     def get_standard_dictionaries(self):
         filenames = []
         for dir in self.dict_path:
-            filenames.extend(glob(os.path.join(dir, "*.dict")))
+            filenames.extend(glob.glob(os.path.join(dir, "*.dict")))
         return filenames
 
     def _create_dict(self):
@@ -266,7 +266,7 @@ class DictionaryCollection:
                 else:
                     warn("%s dictionary not found" % dict)
 
-        (out_fd, out_filename) = mkstemp(".dict", "kodespel-")
+        (out_fd, out_filename) = tempfile.mkstemp(".dict", "kodespel-")
         out_file = os.fdopen(out_fd, "wt")
         for filename in dict_files:
             in_file = open(filename, "rt")

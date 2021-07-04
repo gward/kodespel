@@ -2,8 +2,7 @@
 
 import sys
 from optparse import OptionParser
-from kodespel.kodespel import \
-    CodeChecker, DictionaryCollection, error, determine_languages
+from . import kodespel
 
 
 def main():
@@ -40,12 +39,11 @@ def main():
             parser.error("no additional arguments allowed with "
                          "--list-dicts or --dump-dict")
 
+    dictset = kodespel.DictionaryCollection()
     if options.list_dicts:
-        dictset = DictionaryCollection()
         print("\n".join(dictset.get_standard_dictionaries()))
         sys.exit()
 
-    dictset = DictionaryCollection()
     for dict in options.dictionaries:
         dictset.add_dictionary(dict)
 
@@ -62,16 +60,16 @@ def main():
 
     filenames = args
 
-    languages = determine_languages(filenames)
+    languages = kodespel.determine_languages(filenames)
     for lang in languages:
         dictset.add_dictionary(lang)
 
     any_errors = False
     for filename in filenames:
         try:
-            checker = CodeChecker(filename, dictionaries=dictset)
+            checker = kodespel.CodeChecker(filename, dictionaries=dictset)
         except IOError as err:
-            error("%s: %s" % (filename, err.strerror))
+            kodespel.error("%s: %s" % (filename, err.strerror))
             any_errors = True
         else:
             checker.set_unique(options.unique)
