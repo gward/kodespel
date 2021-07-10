@@ -18,15 +18,15 @@ import sys
 import tempfile
 from typing import Union, Optional, Iterable, Dict, List, IO
 
-assert sys.hexversion >= 0x03060000, "requires Python 3.6 or greater"
+assert sys.hexversion >= 0x03060000, 'requires Python 3.6 or greater'
 
 
 def warn(msg):
-    sys.stderr.write("warning: %s: %s\n" % (__name__, msg))
+    sys.stderr.write('warning: %s: %s\n' % (__name__, msg))
 
 
 def error(msg):
-    sys.stderr.write("error: %s: %s\n" % (__name__, msg))
+    sys.stderr.write('error: %s: %s\n' % (__name__, msg))
 
 
 def _stdrepr(self):
@@ -34,15 +34,15 @@ def _stdrepr(self):
 
 
 EXTENSION_LANG = {
-    ".go": "go",
-    ".py": "python",
-    ".pl": "perl",
-    ".pm": "perl",
-    ".c": "c",
-    ".h": "c",
-    ".cpp": "c",
-    ".hpp": "c",
-    ".java": "java",
+    '.go': 'go',
+    '.py': 'python',
+    '.pl': 'perl',
+    '.pm': 'perl',
+    '.c': 'c',
+    '.h': 'c',
+    '.cpp': 'c',
+    '.hpp': 'c',
+    '.java': 'java',
 }
 
 
@@ -56,16 +56,16 @@ def determine_language(filename: str) -> Optional[str]:
     ext = os.path.splitext(filename)[1]
     lang = EXTENSION_LANG.get(ext)
     if not lang and os.stat(filename).st_mode & 0o111:
-        file = open(filename, "rt")
+        file = open(filename, 'rt')
         first_line = file.readline()
         file.close()
 
-        if not first_line.startswith("#!"):
+        if not first_line.startswith('#!'):
             lang = None
-        elif "python" in first_line:
-            lang = "python"
-        elif "perl" in first_line:
-            lang = "perl"
+        elif 'python' in first_line:
+            lang = 'python'
+        elif 'perl' in first_line:
+            lang = 'perl'
 
     return lang
 
@@ -95,22 +95,22 @@ class SpellChecker:
         self.word_len = word_len
 
     def open(self):
-        cmd = ["ispell", "-a"]
+        cmd = ['ispell', '-a']
         if self.allow_compound:
-            cmd.append("-C")
+            cmd.append('-C')
         if self.word_len is not None:
-            cmd.append("-W%d" % self.word_len)
+            cmd.append('-W%d' % self.word_len)
         if self.dictionary:
-            cmd.extend(["-p", self.dictionary])
+            cmd.extend(['-p', self.dictionary])
 
         try:
             pipe = subprocess.Popen(cmd,
                                     stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE,
                                     close_fds=True,
-                                    encoding="utf-8")
+                                    encoding='utf-8')
         except OSError as err:
-            raise OSError("error executing %s: %s" % (cmd[0], err.strerror))
+            raise OSError('error executing %s: %s' % (cmd[0], err.strerror))
 
         assert pipe.stdin is not None
         assert pipe.stdout is not None
@@ -118,12 +118,12 @@ class SpellChecker:
         self.ispell_out = pipe.stdout
 
         firstline = self.ispell_out.readline()
-        assert firstline.startswith("@(#)"), \
-            "expected \"@(#)\" line from ispell (got %r)" % firstline
+        assert firstline.startswith('@(#)'), \
+            'expected "@(#)" line from ispell (got %r)' % firstline
 
         # Put ispell in terse mode (no output for correctly-spelled
         # words).
-        self.ispell_in.write("!\n")
+        self.ispell_in.write('!\n')
 
         # Total number of unique spelling errors seen.
         self.total_errors = 0
@@ -132,14 +132,14 @@ class SpellChecker:
         in_status = self.ispell_in.close()
         out_status = self.ispell_out.close()
         if in_status != out_status:
-            warn("huh? ispell_in status was %r, but ispell_out status was %r"
+            warn('huh? ispell_in status was %r, but ispell_out status was %r'
                  % (in_status, out_status))
         elif in_status is not None:
-            warn("ispell failed with exit status %r" % in_status)
+            warn('ispell failed with exit status %r' % in_status)
 
     def send(self, word):
         '''Send a word to ispell to be checked.'''
-        self.ispell_in.write("^" + word + "\n")
+        self.ispell_in.write('^' + word + '\n')
 
     def done_sending(self):
         self.ispell_in.close()
@@ -160,7 +160,7 @@ class SpellChecker:
             code = line[0]
             extra = line[1:-1]
 
-            if code in "&?":
+            if code in '&?':
                 # ispell has near-misses or guesses, formatted like this:
                 #   "& orig count offset: miss, miss, ..., guess, ..."
                 #   "? orig 0 offset: guess, ..."
@@ -169,9 +169,9 @@ class SpellChecker:
                 count: Union[str, int]
                 (orig, count, offset, extra) = extra.split(None, 3)
                 count = int(count)
-                guesses = extra.split(", ")
+                guesses = extra.split(', ')
                 report.append((orig, guesses))
-            elif code == "#":
+            elif code == '#':
                 # ispell has no clue
                 orig = extra.split()[0]
                 report.append((orig, []))
@@ -185,9 +185,9 @@ class BuiltinDictionaries:
     def __init__(self):
         script_dir = os.path.dirname(sys.argv[0])
         self.dict_path = [
-            os.path.join(sys.prefix, "share/kodespel"),
-            os.path.join(script_dir, "../dict"),
-            os.path.join(os.path.dirname(__file__), "../dict"),
+            os.path.join(sys.prefix, 'share/kodespel'),
+            os.path.join(script_dir, '../dict'),
+            os.path.join(os.path.dirname(__file__), '../dict'),
         ]
 
     def get_filenames(self) -> List[str]:
@@ -195,7 +195,7 @@ class BuiltinDictionaries:
         filenames = []
         for dir in self.dict_path:
             filenames.extend(glob.glob(os.path.join(
-                os.path.abspath(dir), "*.dict")))
+                os.path.abspath(dir), '*.dict')))
         return filenames
 
     def get_names(self) -> Iterable[str]:
@@ -343,7 +343,7 @@ class CodeChecker:
     def __init__(self, filename=None, file=None, dictionaries=None):
         self.filename = filename
         if file is None and filename is not None:
-            self.file = open(filename, "rt")
+            self.file = open(filename, 'rt')
         else:
             self.file = file
 
@@ -403,9 +403,9 @@ class CodeChecker:
         '''
         Given a line (or larger chunk) of source code, splits it
         into words.  Eg. the string
-          "match = pat.search(current_line, 0, pos)"
+          'match = pat.search(current_line, 0, pos)'
         is split into
-          ["match", "pat", "search", "current", "line", "pos"]
+          ['match', 'pat', 'search', 'current', 'line', 'pos']
         '''
         if self.exclude_re:
             line = self.exclude_re.sub('', line)
@@ -444,8 +444,8 @@ class CodeChecker:
 
     def _report(self, messages, file):
         for (line_num, bad_word, guesses) in messages:
-            guesses = ", ".join(guesses)
-            print("%s:%d: %s: %s?"
+            guesses = ', '.join(guesses)
+            print('%s:%d: %s: %s?'
                   % (self.filename, line_num, bad_word, guesses),
                   file=file)
 
@@ -462,6 +462,6 @@ class CodeChecker:
         return bool(errors)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import sys
     sys.exit(CodeChecker(sys.argv[1]).check_file() and 1 or 0)
