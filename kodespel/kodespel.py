@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from typing import Optional, Iterable, Dict, List
 
 assert sys.hexversion >= 0x03060000, "requires Python 3.6 or greater"
 
@@ -45,35 +46,28 @@ EXTENSION_LANG = {
 }
 
 
-def determine_languages(filenames):
+def determine_language(filename: str) -> Optional[str]:
+    '''Analyze a file and return the programming language used. Goes by
+    filename first, and then handles scripts (ie. if executable, open and
+    read first line looking for name of interpreter).
+
+    :return: one of the values of EXTENSION_LANG, or None if unknown language
     '''
-    Analyze a list of files and return the set of programming
-    languages represented.  Goes by filename first, and then handles
-    scripts (ie. if executable, open and read first line looking
-    for name of interpreter).
-    '''
-    languages = set()
-    for filename in filenames:
-        ext = os.path.splitext(filename)[1]
-        lang = EXTENSION_LANG.get(ext)
-        if not lang and os.stat(filename).st_mode & 0o111:
-            file = open(filename, "rt")
-            first_line = file.readline()
-            file.close()
+    ext = os.path.splitext(filename)[1]
+    lang = EXTENSION_LANG.get(ext)
+    if not lang and os.stat(filename).st_mode & 0o111:
+        file = open(filename, "rt")
+        first_line = file.readline()
+        file.close()
 
-            if not first_line.startswith("#!"):
-                continue
-            if "python" in first_line:
-                lang = "python"
-            elif "perl" in first_line:
-                lang = "perl"
+        if not first_line.startswith("#!"):
+            lang = None
+        elif "python" in first_line:
+            lang = "python"
+        elif "perl" in first_line:
+            lang = "perl"
 
-        if lang:
-            languages.add(lang)
-        else:
-            warn("unable to determine language of file %r" % filename)
-
-    return languages
+    return lang
 
 
 class SpellChecker:
@@ -182,107 +176,115 @@ class SpellChecker:
         return report
 
 
-class DictionaryCollection:
-    '''
-    A collection of dictionaries that can be used for spell-checking
-    many files (ie. with many instances of CodeChecker).  A dictionary
-    may be standard dictionary, shipped and installed with kodespel
-    and identified by name (e.g. "unix", "java"); or it may be a custom
-    dictionary, identified by filename (e.g. "./dict/myproject.dict").
-    '''
-
-    __slots__ = [
-        # List of directories to search for dictionary files.
-        'dict_path',
-
-        'dict_filename',
-
-        # The set of programming languages to be checked (this is just
-        # a specialized form of standard dictionary).
-        'languages',
-
-        # List of dictionaries.  Dictionaries are specified either
-        # as a filename ("dict/myproject.dict") or a basename ("unix"),
-        # which is resolved against the CodeChecker's dict_path.
-        'dictionaries',
-    ]
-
+class BuiltinDictionaries:
+    '''The collection of all of kodespel's builtin dictionaries.'''
     def __init__(self):
-        prog = sys.argv[0]
-        while os.path.islink(prog):
-            prog = os.path.join(os.path.dirname(prog), os.readlink(prog))
-        script_dir = os.path.dirname(prog)
-
+        script_dir = os.path.dirname(sys.argv[0])
         self.dict_path = [
             os.path.join(sys.prefix, "share/kodespel"),
             os.path.join(script_dir, "../dict"),
             os.path.join(os.path.dirname(__file__), "../dict"),
         ]
-        self.dictionaries = []
-        self.dict_filename = None       # file with concatenated dictionaries
+
+    def get_filenames(self) -> List[str]:
+        '''return the list of all builtin dicts (as bare names)'''
+        filenames = []
+        for dir in self.dict_path:
+            filenames.extend(glob.glob(os.path.join(
+                os.path.abspath(dir), "*.dict")))
+        return filenames
+
+    def get_names(self) -> Iterable[str]:
+        for fn in self.get_filenames():
+            yield os.path.basename(os.path.splitext(fn)[0])
+
+    def find(self, name: str) -> Optional[str]:
+        for dir in self.dict_path:
+            fn = os.path.join(dir, name + '.dict')
+            if os.path.isfile(fn):
+                return fn
+        return None
+
+
+class WordList:
+    '''A list of words that can be used to spellcheck any number of files.'''
+
+    names: List[str]            # dictionary names or filenames
+    filename: Optional[str]
+    is_temp: bool
+
+    def __init__(self, builtins: BuiltinDictionaries, names: List[str]):
+        self.builtins = builtins
+        self.names = names
+
+        self.filename = None
+        self.is_temp = False
 
     def __str__(self):
-        return ','.join(self.dictionaries)
+        return ','.join(self.names)
 
     __repr__ = _stdrepr
 
     def close(self):
-        if self.dict_filename and os.path.exists(self.dict_filename):
-            os.unlink(self.dict_filename)
-            self.dict_filename = None
+        if self.is_temp and self.filename is not None:
+            print(f'unlink {self.filename}')
+            os.unlink(self.filename)
 
-    def __del__(self):
-        self.close()
+    def get_filename(self) -> str:
+        if self.filename is not None:
+            return self.filename
+        if len(self.names) == 1:
+            self.filename = self._resolve(self.names[0])
+            self.is_temp = False
+            return self.filename
 
-    def add_dictionary(self, dictionary):
-        '''
-        Specify a dictionary, which can either be a working filename, or
-        a base filename which is searched for in 'dict_path' after
-        appending ".dict".
-        '''
-        self.dictionaries.append(dictionary)
+        tfile = tempfile.NamedTemporaryFile(
+            mode='wt', prefix='kodespel-', suffix='.dict', delete=False)
+        self.filename = tfile.name
+        self.is_temp = True
 
-    def get_standard_dictionaries(self):
-        filenames = []
-        for dir in self.dict_path:
-            filenames.extend(glob.glob(os.path.join(dir, "*.dict")))
-        return filenames
+        # write content to the temp file
+        for name in self.names:
+            input = self._resolve(name)
+            if input is None:
+                continue
+            with open(input) as infile:
+                tfile.write(infile.read())
+            tfile.write('\n')
+        tfile.close()
 
-    def _create_dict(self):
-        dicts = ["base"] + self.dictionaries
-        dict_files = []
-        for dict in dicts:
-            # If a working filename was supplied, use it.
-            if os.path.isfile(dict):
-                dict_files.append(dict)
+        return self.filename
 
-            # Otherwise, append ".dict" and search the dict_path.
-            else:
-                for dir in self.dict_path:
-                    dict_file = os.path.join(dir, dict + ".dict")
-                    if os.path.exists(dict_file):
-                        dict_files.append(dict_file)
-                        break
-                else:
-                    warn("%s dictionary not found" % dict)
+    def _resolve(self, name) -> str:
+        # if name is already a file, nothing to do
+        if os.path.isfile(name):
+            return name
 
-        (out_fd, out_filename) = tempfile.mkstemp(".dict", "kodespel-")
-        out_file = os.fdopen(out_fd, "wt")
-        for filename in dict_files:
-            in_file = open(filename, "rt")
-            out_file.write(in_file.read())
-            in_file.close()
+        # ok, see if it it's a builtin dict like "base" (i.e. does it exist
+        # in the dictionary search path)
+        fn = self.builtins.find(name)
+        if fn is not None:
+            return fn
 
-        out_file.close()
-        self.dict_filename = out_filename
+        # no luck
+        warn(f'dictionary not found: {name}')
 
-    def get_filename(self):
-        if self.dict_filename is None:
-            self._create_dict()
-            assert (self.dict_filename is not None and
-                    os.path.isfile(self.dict_filename)), \
-                "bad dict_filename: %r" % self.dict_filename
-        return self.dict_filename
+
+_wordlist_cache: Dict[str, WordList] = {}
+
+
+def get_wordlist(builtins: BuiltinDictionaries, names: List[str]) -> WordList:
+    key = '\0'.join(names)
+    try:
+        wordlist = _wordlist_cache[key]
+    except KeyError:
+        _wordlist_cache[key] = wordlist = WordList(builtins, names)
+    return wordlist
+
+
+def close_all_wordlists():
+    for wl in _wordlist_cache.values():
+        wl.close()
 
 
 class CodeChecker:

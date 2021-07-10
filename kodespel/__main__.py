@@ -39,16 +39,16 @@ def main():
             parser.error("no additional arguments allowed with "
                          "--list-dicts or --dump-dict")
 
-    dictset = kodespel.DictionaryCollection()
+    builtins = kodespel.BuiltinDictionaries()
     if options.list_dicts:
-        print("\n".join(dictset.get_standard_dictionaries()))
+        print("\n".join(builtins.get_names()))
         sys.exit()
 
-    for dict in options.dictionaries:
-        dictset.add_dictionary(dict)
+    dictionaries = ['base'] + options.dictionaries
+    base_wordlist = kodespel.get_wordlist(builtins, dictionaries)
 
     if options.dump_dict:
-        file = open(dictset.get_filename(), "rt")
+        file = open(base_wordlist.get_filename(), "rt")
         for line in file:
             line = line.strip()
             if line:
@@ -60,14 +60,17 @@ def main():
 
     filenames = args
 
-    languages = kodespel.determine_languages(filenames)
-    for lang in languages:
-        dictset.add_dictionary(lang)
-
     any_errors = False
     for filename in filenames:
+        lang = kodespel.determine_language(filename)
+        if lang is not None:
+            wordlist = kodespel.get_wordlist(builtins, dictionaries + [lang])
+        else:
+            wordlist = base_wordlist
+
+        print(f'checking {filename} with {wordlist!r}')
         try:
-            checker = kodespel.CodeChecker(filename, dictionaries=dictset)
+            checker = kodespel.CodeChecker(filename, dictionaries=wordlist)
         except IOError as err:
             kodespel.error("%s: %s" % (filename, err.strerror))
             any_errors = True
@@ -81,7 +84,7 @@ def main():
             if checker.check_file():
                 any_errors = True
 
-    dictset.close()
+    kodespel.close_all_wordlists()
     sys.exit(any_errors and 1 or 0)
 
 
