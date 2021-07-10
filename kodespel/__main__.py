@@ -31,7 +31,7 @@ def main():
     parser.add_option('--no-compound',
                       action='store_false', dest='compound',
                       help='do not allow compound words')
-    parser.add_option('-W', '--wordlen', type='int', default=2,
+    parser.add_option('-W', '--wordlen', type='int', default=3,
                       metavar='N',
                       help='ignore words with <= N characters')
     parser.set_defaults(compound=True, unique=True)
