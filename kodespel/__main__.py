@@ -8,8 +8,10 @@ from . import kodespel
 def main():
     parser = OptionParser(usage='%prog [options] filename ...')
 
+    parser.add_option('-a', '--all', action='store_false', dest='unique',
+                      help='report every single misspelling [default: --unique]')
     parser.add_option('-u', '--unique', action='store_true',
-                      help='report each misspelling only once')
+                      help='report each misspelling only once [default]')
     parser.add_option('-d', '--dictionary',
                       action='append', dest='dictionaries', default=[],
                       metavar='DICT',
@@ -32,7 +34,7 @@ def main():
     parser.add_option('-W', '--wordlen', type='int', default=2,
                       metavar='N',
                       help='ignore words with <= N characters')
-    parser.set_defaults(compound=True)
+    parser.set_defaults(compound=True, unique=True)
     (options, args) = parser.parse_args()
     if options.list_dicts or options.dump_dict:
         if args:
