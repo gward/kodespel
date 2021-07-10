@@ -3,6 +3,7 @@ args
 attr
 bsddb
 chr
+ctypes
 dbm
 def
 del
@@ -12,12 +13,15 @@ dir
 distutils
 elif
 endswith
+enum
 env
+fnmatch
 init
 isdir
 isfile
 isinstance
 islink
+kwargs
 len
 lstrip
 makedirs
@@ -30,6 +34,7 @@ py
 pyc
 pyo
 re
+repr
 rmtree
 rstrip
 shutil

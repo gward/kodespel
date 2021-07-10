@@ -10,6 +10,7 @@ deiconify
 desc
 endian
 errno
+func
 hpp
 http
 https
@@ -20,6 +21,7 @@ java
 max
 min
 mkdir
+mutex
 num
 perl
 popup

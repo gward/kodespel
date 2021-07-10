@@ -12,6 +12,7 @@ fdopen
 fstat
 fstatvfs
 getcwd
+gettimeofday
 lchown
 mkdtemp
 mkstemp

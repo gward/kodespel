@@ -1,3 +1,5 @@
+argc
+fdopen
 mkstemp
 popen
-fdopen
+sprintf
