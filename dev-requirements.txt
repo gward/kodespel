@@ -1,6 +1,7 @@
 # for testing
 flake8 >= 3.9.2
 pytest >= 6.2.4
+mypy >= 0.910
 
 # for releasing
 build >= 0.5.1

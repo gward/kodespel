@@ -16,7 +16,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from typing import Optional, Iterable, Dict, List
+from typing import Union, Optional, Iterable, Dict, List, IO
 
 assert sys.hexversion >= 0x03060000, "requires Python 3.6 or greater"
 
@@ -77,12 +77,13 @@ class SpellChecker:
     of misspelled words back from it.
     '''
 
+    ispell_in: IO[str]
+    ispell_out: IO[str]
+
     def __init__(self):
         self.allow_compound = None
         self.word_len = None
         self.dictionary = None
-        self.ispell_in = None
-        self.ispell_out = None
 
     def set_dictionary(self, dictionary):
         self.dictionary = dictionary
@@ -111,6 +112,8 @@ class SpellChecker:
         except OSError as err:
             raise OSError("error executing %s: %s" % (cmd[0], err.strerror))
 
+        assert pipe.stdin is not None
+        assert pipe.stdout is not None
         self.ispell_in = pipe.stdin
         self.ispell_out = pipe.stdout
 
@@ -163,6 +166,7 @@ class SpellChecker:
                 #   "? orig 0 offset: guess, ..."
                 # I don't care about the distinction between near-misses
                 # and guesses.
+                count: Union[str, int]
                 (orig, count, offset, extra) = extra.split(None, 3)
                 count = int(count)
                 guesses = extra.split(", ")
@@ -235,6 +239,9 @@ class WordList:
             return self.filename
         if len(self.names) == 1:
             self.filename = self._resolve(self.names[0])
+            if self.filename is None:
+                raise RuntimeError(
+                    f'could not resolve dictionary: {self.names[0]}')
             self.is_temp = False
             return self.filename
 
@@ -255,7 +262,7 @@ class WordList:
 
         return self.filename
 
-    def _resolve(self, name) -> str:
+    def _resolve(self, name) -> Optional[str]:
         # if name is already a file, nothing to do
         if os.path.isfile(name):
             return name
@@ -268,6 +275,7 @@ class WordList:
 
         # no luck
         warn(f'dictionary not found: {name}')
+        return None
 
 
 _wordlist_cache: Dict[str, WordList] = {}

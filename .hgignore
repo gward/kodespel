@@ -6,4 +6,5 @@ dist$
 venv$
 .*\.egg-info/
 MANIFEST
-.pytest_cache
+\.pytest_cache$
+\.mypy_cache$
