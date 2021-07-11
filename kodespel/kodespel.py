@@ -218,7 +218,7 @@ class BuiltinDictionaries:
         return None
 
 
-class WordList:
+class Wordlist:
     '''A list of words that can be used to spellcheck any number of files.'''
 
     names: List[str]            # dictionary names or filenames
@@ -286,21 +286,25 @@ class WordList:
         return None
 
 
-_wordlist_cache: Dict[str, WordList] = {}
+class WordlistCache:
+    builtins: BuiltinDictionaries
+    cache: Dict[str, Wordlist]
 
+    def __init__(self, builtins: BuiltinDictionaries):
+        self.builtins = builtins
+        self.cache = {}
 
-def get_wordlist(builtins: BuiltinDictionaries, names: List[str]) -> WordList:
-    key = '\0'.join(names)
-    try:
-        wordlist = _wordlist_cache[key]
-    except KeyError:
-        _wordlist_cache[key] = wordlist = WordList(builtins, names)
-    return wordlist
+    def close(self):
+        for wl in self.cache.values():
+            wl.close()
 
-
-def close_all_wordlists():
-    for wl in _wordlist_cache.values():
-        wl.close()
+    def get_wordlist(self, names: List[str]) -> Wordlist:
+        key = '\0'.join(names)
+        try:
+            wordlist = self.cache[key]
+        except KeyError:
+            self.cache[key] = wordlist = Wordlist(self.builtins, names)
+        return wordlist
 
 
 class CodeChecker:
@@ -474,12 +478,12 @@ def check_inputs(
         options,
         dictionaries: List[str],
         inputs: List[str],
-        builtins: BuiltinDictionaries,
-        base_wordlist: WordList) -> bool:
+        cache: WordlistCache,
+        base_wordlist: Wordlist) -> bool:
     for filename in find_files(inputs):
         lang = determine_language(filename)
         if lang is not None:
-            wordlist = get_wordlist(builtins, dictionaries + [lang])
+            wordlist = cache.get_wordlist(dictionaries + [lang])
         else:
             wordlist = base_wordlist
 

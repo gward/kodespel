@@ -47,7 +47,8 @@ def main():
         sys.exit()
 
     dictionaries = ['base'] + options.dictionaries
-    base_wordlist = kodespel.get_wordlist(builtins, dictionaries)
+    cache = kodespel.WordlistCache(builtins)
+    base_wordlist = cache.get_wordlist(dictionaries)
 
     if options.dump_dict:
         file = open(base_wordlist.get_filename(), 'rt')
@@ -64,10 +65,10 @@ def main():
         options,
         dictionaries,
         args,
-        builtins,
+        cache,
         base_wordlist)
 
-    kodespel.close_all_wordlists()
+    cache.close()
     sys.exit(any_errors and 1 or 0)
 
 
