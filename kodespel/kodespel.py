@@ -462,6 +462,42 @@ class CodeChecker:
         return bool(errors)
 
 
+def check_inputs(
+        options,
+        dictionaries: List[str],
+        inputs: List[str],
+        builtins: BuiltinDictionaries,
+        base_wordlist: WordList) -> bool:
+    for filename in find_files(inputs):
+        lang = determine_language(filename)
+        if lang is not None:
+            wordlist = get_wordlist(builtins, dictionaries + [lang])
+        else:
+            wordlist = base_wordlist
+
+        print(f'checking {filename} with {wordlist!r}')
+        try:
+            checker = CodeChecker(filename, dictionaries=wordlist)
+        except IOError as err:
+            error('%s: %s' % (filename, err.strerror))
+            any_errors = True
+        else:
+            checker.set_unique(options.unique)
+            ispell = checker.get_spell_checker()
+            ispell.set_allow_compound(options.compound)
+            ispell.set_word_len(options.wordlen)
+            for s in options.exclude:
+                checker.exclude_string(s)
+            if checker.check_file():
+                any_errors = True
+
+    return any_errors
+
+
+def find_files(inputs: List[str]) -> Iterable[str]:
+    return inputs
+
+
 if __name__ == '__main__':
     import sys
     sys.exit(CodeChecker(sys.argv[1]).check_file() and 1 or 0)

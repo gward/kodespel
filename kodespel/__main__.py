@@ -60,31 +60,12 @@ def main():
     if not args:
         parser.error('not enough arguments')
 
-    filenames = args
-
-    any_errors = False
-    for filename in filenames:
-        lang = kodespel.determine_language(filename)
-        if lang is not None:
-            wordlist = kodespel.get_wordlist(builtins, dictionaries + [lang])
-        else:
-            wordlist = base_wordlist
-
-        print(f'checking {filename} with {wordlist!r}')
-        try:
-            checker = kodespel.CodeChecker(filename, dictionaries=wordlist)
-        except IOError as err:
-            kodespel.error('%s: %s' % (filename, err.strerror))
-            any_errors = True
-        else:
-            checker.set_unique(options.unique)
-            ispell = checker.get_spell_checker()
-            ispell.set_allow_compound(options.compound)
-            ispell.set_word_len(options.wordlen)
-            for s in options.exclude:
-                checker.exclude_string(s)
-            if checker.check_file():
-                any_errors = True
+    any_errors = kodespel.check_inputs(
+        options,
+        dictionaries,
+        args,
+        builtins,
+        base_wordlist)
 
     kodespel.close_all_wordlists()
     sys.exit(any_errors and 1 or 0)
