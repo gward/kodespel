@@ -55,7 +55,15 @@ def determine_language(filename: str) -> Optional[str]:
     '''
     ext = os.path.splitext(filename)[1]
     lang = EXTENSION_LANG.get(ext)
-    if not lang and os.stat(filename).st_mode & 0o111:
+    if lang:
+        return lang
+
+    try:
+        stat = os.stat(filename)
+    except OSError as err:
+        return None
+
+    if stat.st_mode & 0o111:
         file = open(filename, 'rt')
         first_line = file.readline()
         file.close()

@@ -8,6 +8,7 @@ def test_determine_language():
         ('file1.py', 'python'),
         ('script1', 'python'),
         ('script2', None),
+        ('does_not_exist', None),
     ]
     for basename, expect_language in tests:
         filename = os.path.join(os.path.dirname(__file__), 'data', basename)
