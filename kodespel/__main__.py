@@ -6,7 +6,7 @@ from . import kodespel
 
 
 def main():
-    parser = OptionParser(usage='%prog [options] filename ...')
+    parser = OptionParser(usage='%prog [options] file_or_dir ...')
 
     parser.add_option('-a', '--all', action='store_false', dest='unique',
                       help='report every single misspelling [default: --unique]')
