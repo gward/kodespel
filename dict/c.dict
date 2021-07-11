@@ -1,0 +1,12 @@
+enum
+fflush
+fnmatch
+fprintf
+fputs
+malloc
+sizeof
+stdarg
+stdbool
+stdlib
+strlen
+strncpy
