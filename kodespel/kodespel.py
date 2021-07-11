@@ -10,13 +10,14 @@ SOME_CONSTENT, and HTTPRepsonse are all handled correctly.
 Requires Python 3.6 or greater.
 '''
 
+import collections
 import glob
 import os
 import re
 import subprocess
 import sys
 import tempfile
-from typing import Union, Optional, Iterable, Dict, List, IO
+from typing import Union, Optional, Iterable, Dict, List, Tuple, IO
 
 assert sys.hexversion >= 0x03060000, 'requires Python 3.6 or greater'
 
@@ -314,11 +315,6 @@ class CodeChecker:
     '''
 
     __slots__ = [
-        # Map word to list of line numbers where that word occurs, and
-        # coincidentally allows us to prevent checking the same word
-        # twice.
-        'locations',
-
         # SpellChecker object -- a pair of pipes to send words to ispell
         # and read errors back.
         'ispell',
@@ -335,7 +331,6 @@ class CodeChecker:
     ]
 
     def __init__(self):
-        self.locations = {}
         self.ispell = SpellChecker()
 
         self.exclude = []
@@ -391,32 +386,35 @@ class CodeChecker:
             line = self.exclude_re.sub('', line)
         return self._word_re.findall(line)
 
-    def _send_words(self, file: IO[str], wordlist: Wordlist):
-        self.ispell.set_dictionary(wordlist.get_filename())
-        self.ispell.open()
+    def _extract_words(self, file: IO[str]) -> Dict[str, List[int]]:
+        '''find all distinct words in file
 
+        :return: dict mapping word to list of 1-based line numbers
+        '''
+        locations = collections.defaultdict(list)
         for (idx, line) in enumerate(file):
             line_num = idx + 1
             for word in self.split_line(line):
-                if word in self.locations:
-                    self.locations[word].append(line_num)
-                else:
-                    self.locations[word] = [line_num]
-                    self.ispell.send(word)
+                locations[word].append(line_num)
+        return dict(locations)
 
+    def _send_words(self, wordlist: Wordlist, words: Iterable[str]):
+        self.ispell.set_dictionary(wordlist.get_filename())
+        self.ispell.open()
+        for word in words:
+            self.ispell.send(word)
         self.ispell.done_sending()
 
-    def _check(self):
-        '''
-        Report spelling errors found in the current file to stderr.
-        Return true if there were any spelling errors.
-        '''
+    def _check(
+            self, locations: Dict[str, List[int]]) \
+            -> List[Tuple[int, str, List[str]]]:
+        '''analyze output of ispell'''
         errors = []
         for (bad_word, guesses) in self.ispell.check():
-            locations = self.locations[bad_word]
+            line_nums = locations[bad_word]
             if self.unique:
-                del locations[1:]
-            for line_num in locations:
+                del line_nums[1:]
+            for line_num in line_nums:
                 errors.append((line_num, bad_word, guesses))
 
         errors.sort()                   # sort on line number
@@ -436,9 +434,12 @@ class CodeChecker:
         '''
         if self.exclude:
             self.exclude_re = re.compile(r'\b(%s)\b' % '|'.join(self.exclude))
+            print(f'exclude: {self.exclude}')
+            print(f'exclude_re: {self.exclude_re.pattern}')
         with open(filename, 'rt') as infile:
-            self._send_words(infile, wordlist)
-        errors = self._check()
+            locations = self._extract_words(infile)
+            self._send_words(wordlist, locations)
+        errors = self._check(locations)
         self._report(filename, errors, sys.stdout)
         return bool(errors)
 
