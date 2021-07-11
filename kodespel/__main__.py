@@ -48,27 +48,28 @@ def main():
 
     dictionaries = ['base'] + options.dictionaries
     cache = kodespel.WordlistCache(builtins)
-    base_wordlist = cache.get_wordlist(dictionaries)
+    try:
+        base_wordlist = cache.get_wordlist(dictionaries)
 
-    if options.dump_dict:
-        file = open(base_wordlist.get_filename(), 'rt')
-        for line in file:
-            line = line.strip()
-            if line:
-                print(line)
-        sys.exit()
+        if options.dump_dict:
+            file = open(base_wordlist.get_filename(), 'rt')
+            for line in file:
+                line = line.strip()
+                if line:
+                    print(line)
+            sys.exit()
 
-    if not args:
-        parser.error('not enough arguments')
+        if not args:
+            parser.error('not enough arguments')
 
-    any_errors = kodespel.check_inputs(
-        options,
-        dictionaries,
-        args,
-        cache,
-        base_wordlist)
-
-    cache.close()
+        any_errors = kodespel.check_inputs(
+            options,
+            dictionaries,
+            args,
+            cache,
+            base_wordlist)
+    finally:
+        cache.close()
     sys.exit(any_errors and 1 or 0)
 
 
