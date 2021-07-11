@@ -314,15 +314,6 @@ class CodeChecker:
     '''
 
     __slots__ = [
-        # Name of the file currently being read.
-        'filename',
-
-        # The file currently being read.
-        'file',
-
-        # Current line number in 'file'.
-        'line_num',
-
         # Map word to list of line numbers where that word occurs, and
         # coincidentally allows us to prevent checking the same word
         # twice.
@@ -332,47 +323,24 @@ class CodeChecker:
         # and read errors back.
         'ispell',
 
-        # The programming language of the current file (used to determine
-        # excluded words).  This can be derived either from the filename
-        # or from the first line of a script.
-        'language',
-
         # List of strings that are excluded from spell-checking.
         'exclude',
 
         # Regex used to strip excluded strings from input.
         'exclude_re',
 
-        # DictionaryCollection instance for finding and concatenating
-        # various custom dictionaries.
-        'dictionaries',
-
         # If true, report each misspelling only once (at its first
         # occurrence).
         'unique',
     ]
 
-    def __init__(self, filename=None, file=None, dictionaries=None):
-        self.filename = filename
-        if file is None and filename is not None:
-            self.file = open(filename, 'rt')
-        else:
-            self.file = file
-
-        self.line_num = 0
+    def __init__(self):
         self.locations = {}
         self.ispell = SpellChecker()
 
-        self.language = None
         self.exclude = []
         self.exclude_re = None
-        self.dictionaries = dictionaries
         self.unique = False
-
-    def __str__(self):
-        return self.filename or '?'
-
-    __repr__ = _stdrepr
 
     def get_spell_checker(self):
         '''
@@ -423,17 +391,17 @@ class CodeChecker:
             line = self.exclude_re.sub('', line)
         return self._word_re.findall(line)
 
-    def _send_words(self):
-        self.ispell.set_dictionary(self.dictionaries.get_filename())
+    def _send_words(self, file: IO[str], wordlist: Wordlist):
+        self.ispell.set_dictionary(wordlist.get_filename())
         self.ispell.open()
 
-        for line in self.file:
-            self.line_num += 1
+        for (idx, line) in enumerate(file):
+            line_num = idx + 1
             for word in self.split_line(line):
                 if word in self.locations:
-                    self.locations[word].append(self.line_num)
+                    self.locations[word].append(line_num)
                 else:
-                    self.locations[word] = [self.line_num]
+                    self.locations[word] = [line_num]
                     self.ispell.send(word)
 
         self.ispell.done_sending()
@@ -454,23 +422,24 @@ class CodeChecker:
         errors.sort()                   # sort on line number
         return errors
 
-    def _report(self, messages, file):
+    def _report(self, filename, messages, outfile):
         for (line_num, bad_word, guesses) in messages:
             guesses = ', '.join(guesses)
             print('%s:%d: %s: %s?'
-                  % (self.filename, line_num, bad_word, guesses),
-                  file=file)
+                  % (filename, line_num, bad_word, guesses),
+                  file=outfile)
 
-    def check_file(self):
+    def check_file(self, filename: str, wordlist: Wordlist) -> bool:
         '''
         Spell-check the current file, reporting errors to stdout.
         Return true if there were any spelling errors.
         '''
         if self.exclude:
             self.exclude_re = re.compile(r'\b(%s)\b' % '|'.join(self.exclude))
-        self._send_words()
+        with open(filename, 'rt') as infile:
+            self._send_words(infile, wordlist)
         errors = self._check()
-        self._report(errors, sys.stdout)
+        self._report(filename, errors, sys.stdout)
         return bool(errors)
 
 
@@ -489,7 +458,7 @@ def check_inputs(
 
         print(f'checking {filename} with {wordlist!r}')
         try:
-            checker = CodeChecker(filename, dictionaries=wordlist)
+            checker = CodeChecker()
         except IOError as err:
             error('%s: %s' % (filename, err.strerror))
             any_errors = True
@@ -500,7 +469,7 @@ def check_inputs(
             ispell.set_word_len(options.wordlen)
             for s in options.exclude:
                 checker.exclude_string(s)
-            if checker.check_file():
+            if checker.check_file(filename, wordlist):
                 any_errors = True
 
     return any_errors
@@ -516,8 +485,3 @@ def find_files(inputs: List[str]) -> Iterable[str]:
                         yield os.path.join(dirpath, fn)
         else:
             yield input
-
-
-if __name__ == '__main__':
-    import sys
-    sys.exit(CodeChecker(sys.argv[1]).check_file() and 1 or 0)
