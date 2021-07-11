@@ -495,7 +495,15 @@ def check_inputs(
 
 
 def find_files(inputs: List[str]) -> Iterable[str]:
-    return inputs
+    for input in inputs:
+        if os.path.isdir(input):
+            for (dirpath, dirnames, filenames) in os.walk(input):
+                for fn in filenames:
+                    ext = os.path.splitext(fn)[1]
+                    if ext in EXTENSION_LANG:
+                        yield os.path.join(dirpath, fn)
+        else:
+            yield input
 
 
 if __name__ == '__main__':
