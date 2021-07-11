@@ -1,3 +1,4 @@
 include dict/*.dict
 include test.sh
 include tests/*.py
+include kodespel/py.typed
