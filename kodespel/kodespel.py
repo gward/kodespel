@@ -60,7 +60,7 @@ def determine_language(filename: str) -> Optional[str]:
 
     try:
         stat = os.stat(filename)
-    except OSError as err:
+    except OSError:
         return None
 
     if stat.st_mode & 0o111:
