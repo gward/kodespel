@@ -1,4 +1,19 @@
+import os
+
 from kodespel import kodespel
+
+
+def test_determine_language():
+    tests = [
+        ('file1.py', 'python'),
+        ('script1', 'python'),
+        ('script2', None),
+    ]
+    for basename, expect_language in tests:
+        filename = os.path.join(os.path.dirname(__file__), 'data', basename)
+        language = kodespel.determine_language(filename)
+        assert language == expect_language, \
+            f'{filename}: expected language {expect_language!r}'
 
 
 class TestCodeChecker:
