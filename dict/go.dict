@@ -8,4 +8,5 @@ getenv
 mux
 sprintf
 uint
+unmarshal
 wrapf

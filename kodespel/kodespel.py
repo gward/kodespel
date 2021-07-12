@@ -395,6 +395,12 @@ class CodeChecker:
         '''analyze output of ispell'''
         errors = []
         for (bad_word, guesses) in self.ispell.check():
+            # ispell accepts "JSON" but not "json": swallow errors that
+            # are only wrong because of case mismatch.
+            guesses_lower = [guess.lower() for guess in guesses]
+            if bad_word.lower() in guesses_lower:
+                continue
+
             line_nums = locations[bad_word]
             if self.unique:
                 del line_nums[1:]
