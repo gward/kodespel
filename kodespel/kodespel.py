@@ -436,6 +436,15 @@ def check_inputs(
         inputs: List[str],
         cache: WordlistCache,
         base_wordlist: Wordlist) -> bool:
+
+    checker = CodeChecker()
+    checker.set_unique(options.unique)
+    checker.set_ignore(options.ignore)
+    ispell = checker.get_spell_checker()
+    ispell.set_allow_compound(options.compound)
+    ispell.set_word_len(options.wordlen)
+
+    any_errors = False
     for filename in find_files(inputs):
         lang = determine_language(filename)
         if lang is not None:
@@ -445,18 +454,11 @@ def check_inputs(
 
         print(f'checking {filename} with {wordlist!r}')
         try:
-            checker = CodeChecker()
+            if checker.check_file(filename, wordlist):
+                any_errors = True
         except IOError as err:
             error('%s: %s' % (filename, err.strerror))
             any_errors = True
-        else:
-            checker.set_unique(options.unique)
-            checker.set_ignore(options.ignore)
-            ispell = checker.get_spell_checker()
-            ispell.set_allow_compound(options.compound)
-            ispell.set_word_len(options.wordlen)
-            if checker.check_file(filename, wordlist):
-                any_errors = True
 
     return any_errors
 
