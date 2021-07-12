@@ -17,7 +17,11 @@ import re
 import subprocess
 import sys
 import tempfile
-from typing import Union, Optional, Iterable, Callable, Dict, List, Tuple, IO
+from typing import (
+    Union, Optional,
+    Iterable, Callable,
+    Dict, List, Set, Tuple, IO,
+)
 
 assert sys.hexversion >= 0x03060000, 'requires Python 3.6 or greater'
 
@@ -309,19 +313,23 @@ class WordlistCache:
 
 
 class CodeChecker:
-    '''
-    Object that reads a source code file, splits it into tokens,
-    splits the tokens into words, and spell-checks each word.
+    '''Object for spellchecking any number of consecutive source files.
+
+    For each file that is processed: split each line into words, feed those
+    words to ispell (wrapped by a SpellChecker object), and report errors
+    found by ispell.
     '''
 
     ispell: SpellChecker
     unique: bool
     ignore: Callable[[str], bool]
+    seen: Set[str]
 
     def __init__(self):
         self.ispell = SpellChecker()
         self.ignore = lambda word: False     # type: ignore
         self.unique = False
+        self.seen = set()                    # words already checked
 
     def get_spell_checker(self):
         '''
@@ -378,8 +386,13 @@ class CodeChecker:
         for (idx, line) in enumerate(file):
             line_num = idx + 1
             for word in self.split_line(line):
-                if not self.ignore(word):    # type: ignore
-                    locations[word].append(line_num)
+                if word in self.seen:
+                    continue
+                if self.ignore(word):        # type: ignore
+                    continue
+                locations[word].append(line_num)
+                if self.unique:
+                    self.seen.add(word)
         return dict(locations)
 
     def _send_words(self, wordlist: Wordlist, words: Iterable[str]):
@@ -402,8 +415,6 @@ class CodeChecker:
                 continue
 
             line_nums = locations[bad_word]
-            if self.unique:
-                del line_nums[1:]
             for line_num in line_nums:
                 errors.append((line_num, bad_word, guesses))
 
