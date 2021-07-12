@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import re
 import sys
 from optparse import OptionParser
 from . import kodespel
@@ -22,10 +23,9 @@ def main():
                       help='list available dictionaries and exit')
     parser.add_option('--dump-dict', action='store_true',
                       help='build custom dictionary (respecting -d options)')
-    parser.add_option('-x', '--exclude', action='append', default=[],
-                      metavar='STR',
-                      help='exclude STR from spell-checking -- strip it from '
-                           'input text before splitting into words')
+    parser.add_option('-I', '--ignore', action='append', default=[],
+                      metavar='REGEX',
+                      help='ignore any words matching REGEX')
     parser.add_option('-C', '--compound', action='store_true',
                       help='allow compound words (eg. getall) [default]')
     parser.add_option('--no-compound',
@@ -45,6 +45,13 @@ def main():
     if options.list_dicts:
         print('\n'.join(builtins.get_names()))
         sys.exit()
+
+    if options.ignore:
+        for pat in options.ignore:
+            try:
+                re.compile(pat)
+            except re.error as err:
+                parser.error(f'invalid ignore pattern {pat!r}: {err}')
 
     dictionaries = ['base'] + options.dictionaries
     cache = kodespel.WordlistCache(builtins)

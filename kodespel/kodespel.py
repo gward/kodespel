@@ -17,7 +17,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from typing import Union, Optional, Iterable, Dict, List, Tuple, IO
+from typing import Union, Optional, Iterable, Callable, Dict, List, Tuple, IO
 
 assert sys.hexversion >= 0x03060000, 'requires Python 3.6 or greater'
 
@@ -314,27 +314,13 @@ class CodeChecker:
     splits the tokens into words, and spell-checks each word.
     '''
 
-    __slots__ = [
-        # SpellChecker object -- a pair of pipes to send words to ispell
-        # and read errors back.
-        'ispell',
-
-        # List of strings that are excluded from spell-checking.
-        'exclude',
-
-        # Regex used to strip excluded strings from input.
-        'exclude_re',
-
-        # If true, report each misspelling only once (at its first
-        # occurrence).
-        'unique',
-    ]
+    ispell: SpellChecker
+    unique: bool
+    ignore: Callable[[str], bool]
 
     def __init__(self):
         self.ispell = SpellChecker()
-
-        self.exclude = []
-        self.exclude_re = None
+        self.ignore = lambda word: False     # type: ignore
         self.unique = False
 
     def get_spell_checker(self):
@@ -344,14 +330,13 @@ class CodeChecker:
         '''
         return self.ispell
 
-    def exclude_string(self, string):
-        '''
-        Exclude 'string' from spell-checking.
-        '''
-        self.exclude.append(string)
-
     def set_unique(self, unique):
         self.unique = unique
+
+    def set_ignore(self, ignore: List[str]):
+        if ignore:
+            ignore_re = re.compile(r'|'.join(ignore), re.IGNORECASE)
+            self.ignore = ignore_re.search   # type: ignore
 
     # A word can match one of 3 patterns.
     _word_re = re.compile(
@@ -382,8 +367,6 @@ class CodeChecker:
         is split into
           ['match', 'pat', 'search', 'current', 'line', 'pos']
         '''
-        if self.exclude_re:
-            line = self.exclude_re.sub('', line)
         return self._word_re.findall(line)
 
     def _extract_words(self, file: IO[str]) -> Dict[str, List[int]]:
@@ -395,7 +378,8 @@ class CodeChecker:
         for (idx, line) in enumerate(file):
             line_num = idx + 1
             for word in self.split_line(line):
-                locations[word].append(line_num)
+                if not self.ignore(word):    # type: ignore
+                    locations[word].append(line_num)
         return dict(locations)
 
     def _send_words(self, wordlist: Wordlist, words: Iterable[str]):
@@ -432,10 +416,6 @@ class CodeChecker:
         Spell-check the current file, reporting errors to stdout.
         Return true if there were any spelling errors.
         '''
-        if self.exclude:
-            self.exclude_re = re.compile(r'\b(%s)\b' % '|'.join(self.exclude))
-            print(f'exclude: {self.exclude}')
-            print(f'exclude_re: {self.exclude_re.pattern}')
         with open(filename, 'rt') as infile:
             locations = self._extract_words(infile)
             self._send_words(wordlist, locations)
@@ -465,11 +445,10 @@ def check_inputs(
             any_errors = True
         else:
             checker.set_unique(options.unique)
+            checker.set_ignore(options.ignore)
             ispell = checker.get_spell_checker()
             ispell.set_allow_compound(options.compound)
             ispell.set_word_len(options.wordlen)
-            for s in options.exclude:
-                checker.exclude_string(s)
             if checker.check_file(filename, wordlist):
                 any_errors = True
 
