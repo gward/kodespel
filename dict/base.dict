@@ -9,6 +9,7 @@ cpp
 deiconify
 desc
 endian
+enum
 errno
 func
 hpp

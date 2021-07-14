@@ -13,7 +13,6 @@ dir
 distutils
 elif
 endswith
-enum
 env
 fnmatch
 init

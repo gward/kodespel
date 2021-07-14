@@ -5,8 +5,12 @@ ctx
 errorf
 func
 getenv
+golang
+ioutil
+logf
 mux
 sprintf
+strconv
 uint
 unmarshal
 wrapf
