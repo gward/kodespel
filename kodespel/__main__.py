@@ -23,6 +23,9 @@ def main():
                       help='list available dictionaries and exit')
     parser.add_option('--dump-dict', action='store_true',
                       help='build custom dictionary (respecting -d options)')
+    parser.add_option('--make-dict', action='store',
+                      metavar='DICTFILE',
+                      help='write unknown words to DICTFILE')
     parser.add_option('-I', '--ignore', action='append', default=[],
                       metavar='REGEX',
                       help='ignore any words matching REGEX')
@@ -53,6 +56,12 @@ def main():
             except re.error as err:
                 parser.error(f'invalid ignore pattern {pat!r}: {err}')
 
+    report = report_errors
+    outfile = sys.stderr
+    if options.make_dict:
+        report = make_dict
+        outfile = open(options.make_dict, 'wt')
+
     dictionaries = ['base'] + options.dictionaries
     cache = kodespel.WordlistCache(builtins)
     try:
@@ -77,15 +86,31 @@ def main():
             cache,
             base_wordlist)
         try:
-            for report in reports:
-                report.report_errors(sys.stderr)
-                any_errors = True
+            any_errors = report(reports, outfile)
         except kodespel.BadInputs:
             # no need to print anything -- that's already been done in check_inputs()
             any_errors = True
     finally:
         cache.close()
     sys.exit(any_errors and 1 or 0)
+
+
+def report_errors(reports, outfile) -> bool:
+    any_errors = False
+    for report in reports:
+        report.report_errors(outfile)
+        any_errors = True
+    return any_errors
+
+
+def make_dict(reports, outfile) -> bool:
+    words = set()
+    for report in reports:
+        for error in report.errors:
+            words.add(error.word.lower())
+
+    print('\n'.join(sorted(words)), file=outfile)
+    return False
 
 
 if __name__ == '__main__':
