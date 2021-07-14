@@ -3,6 +3,8 @@ com
 const
 ctx
 errorf
+failf
+fatalf
 func
 getenv
 golang
