@@ -20,7 +20,7 @@ import tempfile
 from typing import (
     Union, Optional,
     Iterable, Callable,
-    Dict, List, Set, Tuple, IO,
+    Dict, List, Set, IO, NamedTuple,
 )
 
 assert sys.hexversion >= 0x03060000, 'requires Python 3.6 or greater'
@@ -312,6 +312,30 @@ class WordlistCache:
         return wordlist
 
 
+class WordError(NamedTuple):
+    line_num: int
+    word: str
+    guesses: List[str]
+
+
+class FileReport:
+    '''all the spelling errors in a single file'''
+    filename: str
+    errors: List[WordError]
+
+    def __init__(self, filename: str, errors: List[WordError]):
+        self.filename = filename
+        self.errors = errors
+
+    def report_errors(self, outfile):
+        '''report errors to outfile in a compiler-like format'''
+        filename = self.filename
+        for (line_num, bad_word, guesses) in self.errors:
+            print('%s:%d: %s: %s?'
+                  % (filename, line_num, bad_word, ', '.join(guesses)),
+                  file=outfile)
+
+
 class CodeChecker:
     '''Object for spellchecking any number of consecutive source files.
 
@@ -404,7 +428,7 @@ class CodeChecker:
 
     def _check(
             self, locations: Dict[str, List[int]]) \
-            -> List[Tuple[int, str, List[str]]]:
+            -> List[WordError]:
         '''analyze output of ispell'''
         errors = []
         for (bad_word, guesses) in self.ispell.check():
@@ -416,29 +440,25 @@ class CodeChecker:
 
             line_nums = locations[bad_word]
             for line_num in line_nums:
-                errors.append((line_num, bad_word, guesses))
+                errors.append(WordError(line_num, bad_word, guesses))
 
         errors.sort()                   # sort on line number
         return errors
 
-    def _report(self, filename, messages, outfile):
-        for (line_num, bad_word, guesses) in messages:
-            guesses = ', '.join(guesses)
-            print('%s:%d: %s: %s?'
-                  % (filename, line_num, bad_word, guesses),
-                  file=outfile)
-
-    def check_file(self, filename: str, wordlist: Wordlist) -> bool:
-        '''
-        Spell-check the current file, reporting errors to stdout.
-        Return true if there were any spelling errors.
-        '''
+    def check_file(self, filename: str, wordlist: Wordlist) -> Iterable[FileReport]:
+        '''Spell-check a single file. Yield a sequence of FileReport.'''
         with open(filename, 'rt') as infile:
             locations = self._extract_words(infile)
             self._send_words(wordlist, locations)
         errors = self._check(locations)
-        self._report(filename, errors, sys.stdout)
-        return bool(errors)
+        if errors:
+            report = FileReport(filename, errors)
+            yield report
+
+
+class BadInputs(Exception):
+    def __init__(self, filenames):
+        self.filenames = filenames
 
 
 def check_inputs(
@@ -446,7 +466,7 @@ def check_inputs(
         dictionaries: List[str],
         inputs: List[str],
         cache: WordlistCache,
-        base_wordlist: Wordlist) -> bool:
+        base_wordlist: Wordlist) -> Iterable[FileReport]:
 
     checker = CodeChecker()
     checker.set_unique(options.unique)
@@ -455,7 +475,7 @@ def check_inputs(
     ispell.set_allow_compound(options.compound)
     ispell.set_word_len(options.wordlen)
 
-    any_errors = False
+    errors = []
     for filename in find_files(inputs):
         lang = determine_language(filename)
         if lang is not None:
@@ -465,13 +485,14 @@ def check_inputs(
 
         print(f'checking {filename} with {wordlist!r}')
         try:
-            if checker.check_file(filename, wordlist):
-                any_errors = True
+            for report in checker.check_file(filename, wordlist):
+                yield report
         except IOError as err:
             error('%s: %s' % (filename, err.strerror))
-            any_errors = True
+            errors.append(filename)
 
-    return any_errors
+    if errors:
+        raise BadInputs(errors)
 
 
 def find_files(inputs: List[str]) -> Iterable[str]:

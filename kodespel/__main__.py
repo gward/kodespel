@@ -69,12 +69,20 @@ def main():
         if not args:
             parser.error('not enough arguments')
 
-        any_errors = kodespel.check_inputs(
+        any_errors = False
+        reports = kodespel.check_inputs(
             options,
             dictionaries,
             args,
             cache,
             base_wordlist)
+        try:
+            for report in reports:
+                report.report_errors(sys.stderr)
+                any_errors = True
+        except kodespel.BadInputs:
+            # no need to print anything -- that's already been done in check_inputs()
+            any_errors = True
     finally:
         cache.close()
     sys.exit(any_errors and 1 or 0)
