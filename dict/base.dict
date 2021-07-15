@@ -12,6 +12,7 @@ desc
 endian
 enum
 errno
+foobar
 func
 hpp
 http
