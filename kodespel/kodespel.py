@@ -244,7 +244,6 @@ class Wordlist:
 
     def close(self):
         if self.is_temp and self.filename is not None:
-            print(f'unlink {self.filename}')
             os.unlink(self.filename)
 
     def get_filename(self) -> str:
@@ -483,7 +482,6 @@ def check_inputs(
         else:
             wordlist = base_wordlist
 
-        print(f'checking {filename} with {wordlist!r}')
         try:
             for report in checker.check_file(filename, wordlist):
                 yield report
