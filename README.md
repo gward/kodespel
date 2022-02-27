@@ -85,9 +85,9 @@ A tool with similar goals but a different implementation is
 [codespell](https://pypi.org/project/codespell/).
 
 The main advantage of codespell is that it seems to have
-many fewer false positives.
+many fewer false positives as it uses its own dictionaries
+of typos.
 
-The main advantage of kodespel is that it checks identifiers,
-not just comments and strings,
-so can find a lot more errors.
+The main advantage of kodespel is that it checks identifiers
+in camelCase out of the box so can find a lot more errors.
 And more false positives too, unfortunately.
