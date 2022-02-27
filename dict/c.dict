@@ -9,3 +9,4 @@ stdbool
 stdlib
 strlen
 strncpy
+strnlen
