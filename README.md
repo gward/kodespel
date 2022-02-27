@@ -89,5 +89,6 @@ many fewer false positives as it uses its own dictionaries
 of typos.
 
 The main advantage of kodespel is that it checks identifiers
-in camelCase out of the box so can find a lot more errors.
+in camelCase and snake_case out of the box so can find a lot
+more errors.
 And more false positives too, unfortunately.
